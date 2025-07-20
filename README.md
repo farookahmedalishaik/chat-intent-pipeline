@@ -26,3 +26,24 @@ The model was evaluated on a held-out validation set after each epoch. The final
 * **Validation Accuracy:** Approximately `99.88%`
 
 These results demonstrate the model's high accuracy and effectiveness in identifying user intents. The fine-tuned model checkpoint is committed to this repository using Git Large File Storage (LFS) and is located in the `artifacts/bert_intent_model/` directory.
+
+
+
+## 📊 Project Highlights
+
+- Fine-tuned BERT model on custom annotated chat intent data
+- Precision, Recall, and F1 Score for each intent class: `[]`
+- Interactive confusion matrix (via Plotly)
+- Live intent prediction for new messages
+
+## 🚀 Deployment
+
+This app is deployed via **Streamlit Cloud**: [Live App Link](https://your-app.streamlit.app)
+
+## 🧪 Running Locally
+
+```bash
+git clone https://github.com/your-username/chat-intent-pipeline.git
+cd chat-intent-pipeline
+pip install -r requirements.txt
+streamlit run app.py
