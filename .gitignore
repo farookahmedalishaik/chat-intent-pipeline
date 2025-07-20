@@ -1,0 +1,11 @@
+# Ignore model artifacts and outputs
+artifacts/
+bert_output/
+
+# Ignore virtual environment
+venv/
+
+# Ignore OS or editor files
+__pycache__/
+*.pyc
+.DS_Store
