@@ -1,8 +1,28 @@
+# Data handling
 pandas
-sqlalchemy
-psycopg2-binary
+
+# Databases
+SQLAlchemy
+PyMySQL
+
+# Machine learning & NLP
 scikit-learn
-transformers
+numpy
 torch
-streamlit
+transformers
+huggingface-hub
+
+# Model persistence
+joblib
+
+# Annotation (Phase 2)
 label-studio
+
+# Dashboard & plotting
+streamlit
+plotly
+matplotlib
+seaborn
+
+# (Optional) If you ever switch to direct MySQL connector
+# mysql-connector-python
