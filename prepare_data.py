@@ -1,4 +1,4 @@
-# prepare_data.py
+# prepare_data.py (MODIFIED)
 
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -6,11 +6,26 @@ from sklearn.preprocessing import LabelEncoder
 from transformers import BertTokenizer
 import torch
 import os
+from sqlalchemy import create_engine, text # Added for database connection
 
-# Load cleaned data
-df = pd.read_csv("data/cleaned_all.csv")
+# --- NEW: Database connection ---
+# Replace with your actual MySQL connection string
+conn_str = "mysql+pymysql://intent_user:password_intent_db@localhost:3306/intent_db"
+engine = create_engine(conn_str)
 
-# Use only 'text' and 'label'
+# 1. Load data from MySQL database
+print("Loading data from MySQL database...")
+with engine.connect() as conn:
+    # Use 'text()' for a raw SQL query
+    result = conn.execute(text("SELECT text, label FROM messages"))
+    # Fetch all rows and convert to a list of dictionaries
+    data = result.fetchall()
+    # Convert list of tuples/rows to DataFrame
+    df = pd.DataFrame(data, columns=result.keys())
+print(f"Loaded {len(df)} rows from MySQL for data preparation.")
+
+
+# Use only 'text' and 'label' (already selected in SQL)
 texts = df["text"].tolist()
 labels = df["label"].tolist()
 
