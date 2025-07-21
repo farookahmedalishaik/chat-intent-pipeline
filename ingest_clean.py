@@ -1,44 +1,38 @@
-# ingest_clean.py
+# ingest_clean.py (MODIFIED)
 
 import pandas as pd
 import os
 
-# 1. File paths
+# --- NEW: Define the single raw input file ---
+raw_input_file = "raw_customer_interactions.csv" # Make sure you manually create this file
 data_dir = "data"
-files = ["train.csv", "validation.csv", "test.csv"]
-paths = [os.path.join(data_dir, f) for f in files]
+raw_file_path = os.path.join(data_dir, raw_input_file)
 
-# 2. Load each split into a DataFrame
-dfs = []
-for path in paths:
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"Expected file not found: {path}")
-    df = pd.read_csv(path)
-    dfs.append(df)
+# 1. Load the single raw input file
+if not os.path.exists(raw_file_path):
+    raise FileNotFoundError(f"Expected raw input file not found: {raw_file_path}. Please create it by combining your original train/val/test CSVs.")
+df_raw = pd.read_csv(raw_file_path)
 
-# 3. Inspect columns of the first file
-print("Columns in train.csv:", dfs[0].columns.tolist())
+print(f"Columns in {raw_input_file}:", df_raw.columns.tolist())
 
-# 4. Standardize column names
-#    Adjust these mappings if your CSV uses different column names
-for df in dfs:
-    df.rename(columns={"query": "text", "intent": "label"}, inplace=True)
+# 2. Standardize column names (adjust these mappings if your combined raw CSV uses different names)
+# Assuming your combined raw file might still have 'query' and 'intent'
+df_raw.rename(columns={"query": "text", "intent": "label"}, inplace=True)
 
-# 5. Concatenate all splits
-df_all = pd.concat(dfs, ignore_index=True)
-print(f"Combined shape (before cleaning): {df_all.shape}")
 
-# 6. Drop rows with missing text or label
-df_all.dropna(subset=["text", "label"], inplace=True)
+# 3. Drop rows with missing text or label
+df_raw.dropna(subset=["text", "label"], inplace=True)
+print(f"Combined shape (before cleaning): {df_raw.shape}")
 
-# 7. Strip whitespace & lowercase text
-df_all["text"] = df_all["text"].astype(str).str.strip().str.lower()
-df_all["label"] = df_all["label"].astype(str).str.strip().str.lower()
 
-# 8. Final shape
-print(f"Combined shape (after cleaning): {df_all.shape}")
+# 4. Strip whitespace & lowercase text
+df_raw["text"] = df_raw["text"].astype(str).str.strip().str.lower()
+df_raw["label"] = df_raw["label"].astype(str).str.strip().str.lower()
 
-# 9. Save cleaned data
+# 5. Final shape
+print(f"Combined shape (after cleaning): {df_raw.shape}")
+
+# 6. Save cleaned data
 cleaned_path = os.path.join(data_dir, "cleaned_all.csv")
-df_all.to_csv(cleaned_path, index=False)
+df_raw.to_csv(cleaned_path, index=False)
 print(f"Cleaned data saved to: {cleaned_path}")
