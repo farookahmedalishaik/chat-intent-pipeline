@@ -1,5 +1,5 @@
 # load_to_mysql.py (MODIFIED)
-
+import os
 import pandas as pd
 from sqlalchemy import create_engine, text
 
@@ -13,8 +13,14 @@ if not os.path.exists(source_csv_path):
     raise FileNotFoundError(f"Source data for MySQL not found: {source_csv_path}. Please run ingest_clean.py (and optionally audit_corrections.py) first.")
 df = pd.read_csv(source_csv_path)
 
+
+# --- NEW: Select only the 'text' and 'label' columns ---
+# This ensures that only these columns are attempted to be inserted into the MySQL table.
+df = df[['text', 'label']]
+
+
 # 2. Create SQLAlchemy engine for MySQL
-conn_str = "mysql+pymysql://intent_user:YourStrongPassword@localhost:3306/intent_db"
+conn_str = "mysql+pymysql://intent_user:password:intent_db@localhost:3306/intent_db"
 engine = create_engine(conn_str)
 
 # 3. Drop table if it exists and then create it (to ensure a clean load)

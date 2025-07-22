@@ -1,4 +1,4 @@
-utterance,intent,category,tags
+query,intent,category,tags
 would it be possible to cancel the order I made?,cancel_order,ORDER,BIP
 cancelling order,cancel_order,ORDER,BK
 I need assistance canceling the last order I have made,cancel_order,ORDER,B

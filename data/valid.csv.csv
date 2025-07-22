@@ -1,4 +1,4 @@
-utterance,intent,category,tags
+query,intent,category,tags
 I want help to cancel the order I have made,cancel_order,ORDER,B
 where can I get information about order cancellations?,cancel_order,ORDER,BIM
 help to cancel the last order,cancel_order,ORDER,B
