@@ -10,7 +10,7 @@ st.set_page_config(page_title="BERT Intent Dashboard", layout="wide")
 # 2. Load BERT model + tokenizer + CSVs once
 @st.cache_resource
 def load_bert_and_data():
-    # Replace "your-username" with your actual Hugging Face username
+   
     hf_model_repo = "farookahmedalishaik/intent-bert" 
 
     # Load tokenizer and model from Hugging Face Hub

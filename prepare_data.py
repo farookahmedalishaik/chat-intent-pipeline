@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, text # Added for database connection
 
 # --- NEW: Database connection ---
 # Replace with your actual MySQL connection string
-conn_str = "mysql+pymysql://intent_user:password_intent_db@localhost:3306/intent_db"
+conn_str = "mysql+pymysql://intent_user:password:intent_db@localhost:3306/intent_db"
 engine = create_engine(conn_str)
 
 # 1. Load data from MySQL database

@@ -1,4 +1,4 @@
-utterance,intent,category,tags
+query,intent,category,tags
 I have a question about cancelling an order,cancel_order,ORDER,B
 help canceling the order I have made,cancel_order,ORDER,B
 I do not know how to cancel an order I have made,cancel_order,ORDER,BE
