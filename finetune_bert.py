@@ -2,7 +2,7 @@
 
 import torch
 from torch.utils.data import Dataset
-from transformers import BertForSequenceClassification, Trainer, TrainingArguments
+from transformers import BertForSequenceClassification, Trainer, TrainingArguments, BertTokenizer
 from transformers import IntervalStrategy # <--- THIS LINE MUST BE PRESENT
 from sklearn.preprocessing import LabelEncoder
 import pandas as pd
