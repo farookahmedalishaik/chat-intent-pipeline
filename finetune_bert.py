@@ -41,6 +41,8 @@ val_dataset = IntentDataset(
 )
 
 # 4. Load pretrained BERT for sequence classification
+# You need the tokenizer here to save it later
+tokenizer = BertTokenizer.from_pretrained("bert-base-uncased") # <-- Instantiate tokenizer
 model = BertForSequenceClassification.from_pretrained(
     "bert-base-uncased",
     num_labels=num_labels
@@ -82,4 +84,6 @@ trainer.evaluate()
 
 # 9. Save best model & tokenizer
 model.save_pretrained("artifacts/bert_intent_model")
-print("✅ BERT model saved to artifacts/bert_intent_model/")
+tokenizer.save_pretrained("artifacts/bert_intent_model") # <-- ADD THIS LINE TO SAVE THE TOKENIZER!
+
+print("✅ BERT model and tokenizer saved to artifacts/bert_intent_model/")
