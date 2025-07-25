@@ -1,81 +1,101 @@
+# app.py
 import streamlit as st
 import pandas as pd
 import torch
 from transformers import BertTokenizer, BertForSequenceClassification
 from huggingface_hub import hf_hub_download # <-- ADD THIS IMPORT
 
-# 1. Page config
-st.set_page_config(page_title="BERT Intent Dashboard", layout="wide")
+# Page configuration
+st.set_page_config(page_title ="BERT Intent Dashboard", layout="wide")
 
-# 2. Load BERT model + tokenizer + CSVs once
+# Load BERT model,tokenizer,CSVs
 @st.cache_resource
 def load_bert_and_data():
    
     hf_model_repo = "farookahmedalishaik/intent-bert" 
 
     # Load tokenizer and model from Hugging Face Hub
-    tok = BertTokenizer.from_pretrained(hf_model_repo)
-    model = BertForSequenceClassification.from_pretrained(hf_model_repo)
-    model.eval()
+    bert_tokenizer = BertTokenizer.from_pretrained(hf_model_repo)
+    bert_model = BertForSequenceClassification.from_pretrained(hf_model_repo)
+    bert_model.eval()
 
-    # --- IMPORTANT UPDATE FOR CSVS ---
     # Download label mapping CSV from Hugging Face Hub
-    label_map_path = hf_hub_download(repo_id=hf_model_repo, filename="label_mapping.csv")
-    label_map = pd.read_csv(label_map_path)
+    label_file = hf_hub_download(repo_id=hf_model_repo, filename="label_mapping.csv")
+    label_data = pd.read_csv(label_file)
 
-    # Download test metrics CSV from Hugging Face Hub
-    metrics_csv_path = hf_hub_download(repo_id=hf_model_repo, filename="test_metrics_bert.csv")
-    metrics_df = pd.read_csv(metrics_csv_path)
+    return bert_tokenizer, bert_model, label_data
 
-    # Download confusion matrix CSV from Hugging Face Hub
-    cm_csv_path = hf_hub_download(repo_id=hf_model_repo, filename="test_confusion_bert.csv")
-    cm_df = pd.read_csv(cm_csv_path, index_col=0)
-    # --- END IMPORTANT UPDATE FOR CSVS ---
+@st.cache_data
+def load_evaluation_data():
+    hf_model_repo = "farookahmedalishaik/intent-bert"
+    
+    # Performance metrics
+    metrics_file = hf_hub_download(repo_id=hf_model_repo, filename="test_metrics_bert.csv")
+    test_metrics = pd.read_csv(metrics_file)
+    
+    # Confusion matrix data
+    confusion_file = hf_hub_download(repo_id=hf_model_repo, filename="test_confusion_bert.csv")
+    confusion_matrix = pd.read_csv(confusion_file, index_col=0)
+    
+    return test_metrics, confusion_matrix
 
-    return tok, model, label_map, metrics_df, cm_df
 
-# Unpack all returned values from the cached function
-tokenizer, model, label_map, metrics_df, cm_df = load_bert_and_data()
-labels = label_map["label"].tolist()
+# Unpack/Initialize all returned values from the cached function
+tokenizer, model, label_mapping = load_bert_and_data()
+available_intents = label_mapping["label"].tolist()
+test_metrics, confusion_matrix = load_evaluation_data()
 
 
-# 3. Sidebar inputs
-st.sidebar.title("Settings")
-show_cm = st.sidebar.checkbox("Show Confusion Matrix", value=True)
-user_text = st.sidebar.text_area("Enter a message to predict intent:")
+# Sidebar inputs
+st.sidebar.title("Dashboard Controls")
+display_confusion_matrix = st.sidebar.checkbox("Display Confusion Matrix", value=True)
+input_message = st.sidebar.text_area("Test message for intent prediction:")
 
-# 4. Title
+
+# Title
 st.title("🔍 BERT Intent Classification Dashboard")
 
-# 5. Display test-set metrics
-st.header("Test Set Metrics (BERT)")
-st.dataframe(metrics_df.set_index("metric")) # Use the loaded metrics_df
 
-# 6. Confusion matrix
-if show_cm:
-    st.subheader("Confusion Matrix")
+# Show model performance
+st.header("Model Performance on Test Data")
+metrics_display = test_metrics.set_index("metric") # Using the loaded metrics_df
+st.dataframe(metrics_display)
+
+# Confusion matrix
+if display_confusion_matrix:
+    st.subheader("Classification Confusion Matrix")
     import plotly.express as px
-    fig = px.imshow(
-        cm_df, # Use the loaded cm_df
-        labels=dict(x="Predicted", y="True", color="Count"),
-        x=cm_df.columns, y=cm_df.index,
-        text_auto=True
+    heatmap_fig = px.imshow(
+        confusion_matrix, # Using the loaded cm_df
+        labels=dict(x = "Predicted Intent", y = "Actual Intent", color = "Frequency"),
+        x = confusion_matrix.columns,
+        y = confusion_matrix.index,
+        text_auto = True
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(heatmap_fig, use_container_width =True)
 
-# 7. Live prediction
-st.header("🔮 Predict a New Message’s Intent")
-if user_text:
-    inputs = tokenizer(
-        user_text, padding=True, truncation=True,
-        return_tensors="pt", max_length=128
+
+# Live prediction Interface
+st.header("🔮 Intent Prediction Tool")
+if input_message.strip():
+    # Tokenize the input
+    model_inputs = tokenizer(
+        input_message, 
+        padding =True, 
+        truncation = True,
+        return_tensors = "pt", 
+        max_length = 128
     )
+    
+    # Get prediction
     with torch.no_grad():
-        out = model(**inputs)
-        pred = out.logits.argmax(dim=-1).item()
-    intent = labels[pred]
-    st.markdown(f"**Predicted intent:** `{intent}`")
+        model_output = model(**model_inputs)
+        predicted_class = model_output.logits.argmax(dim=-1).item()
+    
+    predicted_intent = available_intents[predicted_class]
+    st.markdown(f"**Predicted Intent:** `{predicted_intent}`")
 
-# 8. Footer
+
+# Footer
 st.write("---")
-st.caption("Built with Streamlit • Phase 5: BERT-only dashboard")
+st.caption("BERT Intent Classification Dashboard - Built with Streamlit")
