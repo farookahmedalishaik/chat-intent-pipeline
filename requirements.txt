@@ -15,7 +15,7 @@ huggingface-hub
 # Model persistence
 joblib
 
-# Annotation (Phase 2)
+# Annotation (for Phase 2)
 label-studio
 
 # Dashboard & plotting
@@ -24,5 +24,5 @@ plotly
 matplotlib
 seaborn
 
-# (Optional) If you ever switch to direct MySQL connector
-# mysql-connector-python
+# direct MySQL connector (just in case)
+mysql-connector-python
