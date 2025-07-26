@@ -79,80 +79,79 @@ available_intents = label_mapping["label"].tolist()
 test_metrics, confusion_matrix = load_evaluation_data()
 
 
-# Sidebar inputs (#for future use)
+# --- Sidebar Content (Leftmost Column) ---
 st.sidebar.title("Dashboard Controls")
-st.sidebar.text("Enter a message for prediction:") # main columns
+st.sidebar.header("💬 Enter Your Message") # New header for the sidebar input
+input_message = st.sidebar.text_area("Type your message here:", height=150, label_visibility="collapsed") # Input in sidebar
 
-# Main Content 
+# --- Main Content Area (Central Column/s) ---
 st.title("🔍 BERT Intent Classification Dashboard")
 
-# two columns for input and guidance
-col1, col2 = st.columns(2)
+# Create columns for main content (prediction result) and right-side guidance
+# Adjust column ratios as desired, e.g., 0.7 for main content, 0.3 for right panel
+main_content_col, right_guidance_col = st.columns([0.65, 0.35]) # Adjust ratio to your preference
 
-with col1:
-    st.header("💬 Enter Your Message")
-    input_message = st.text_area("Type your message here:", height=150, label_visibility="collapsed") # label_visibility to hide default label
-    
-    # Live prediction Interface (moved to col1)
+with main_content_col:
+    # Live prediction Interface (moved into main_content_col)
     st.header("🔮 Intent Prediction Result")
     if input_message.strip():
         # Tokenize the input
         model_inputs = tokenizer(
-            input_message, 
-            padding=True, 
+            input_message,
+            padding=True,
             truncation=True,
-            return_tensors="pt", 
+            return_tensors="pt",
             max_length=128
         )
-        
+
         # Get prediction
         with torch.no_grad():
             model_output = model(**model_inputs)
             # Apply softmax to get probabilities
             probabilities = torch.softmax(model_output.logits, dim=-1)
-            
+
             # Get the highest probability and its corresponding class index
             max_probability = probabilities.max().item()
             predicted_class_idx = probabilities.argmax(dim=-1).item()
-        
+
         # Determine the predicted intent based on confidence
         if max_probability >= CONFIDENCE_THRESHOLD:
             predicted_intent = available_intents[predicted_class_idx]
         else:
             predicted_intent = "other" # Assign "other" when confidence is too low
-            
+
         st.markdown(f"**Predicted Intent:** `<span style='color:green; font-size: 24px;'>{predicted_intent}</span>", unsafe_allow_html=True)
         st.info(f"Confidence Score: `{max_probability:.2f}` (Threshold: `{CONFIDENCE_THRESHOLD:.2f}`)")
     else:
-        st.info("Enter a message above to see its predicted intent.")
+        st.info("Enter a message in the sidebar to see its predicted intent.")
 
-with col2:
+    # Horizontal separator below the prediction result
+    st.markdown("---")
+
+    # Expandable sections for performance metrics and confusion matrix (kept in main_content_col)
+    with st.expander("📊 View Model Performance Metrics"):
+        st.subheader("Model Performance on Test Data")
+        metrics_display = test_metrics.set_index("metric")
+        st.dataframe(metrics_display)
+
+    with st.expander("📈 View Classification Confusion Matrix"):
+        st.subheader("Classification Confusion Matrix")
+        import plotly.express as px
+        heatmap_fig = px.imshow(
+            confusion_matrix,
+            labels=dict(x="Predicted Intent", y="Actual Intent", color="Frequency"),
+            x=confusion_matrix.columns,
+            y=confusion_matrix.index,
+            text_auto=True
+        )
+        st.plotly_chart(heatmap_fig, use_container_width=True)
+
+with right_guidance_col:
     st.header("📚 Understanding the Categories")
     st.info("💡 This tool classifies customer messages into specific intent categories. Knowing these helps you craft effective queries:")
     st.markdown(INTENT_GUIDANCE_TEXT) # Display the detailed list of intents
 
-# Horizontal separator below the columns
-st.markdown("---")
 
-# Expandable sections for performance metrics and confusion matrix (kept below columns)
-with st.expander("📊 View Model Performance Metrics"):
-    st.subheader("Model Performance on Test Data")
-    metrics_display = test_metrics.set_index("metric")
-    st.dataframe(metrics_display)
-
-with st.expander("📈 View Classification Confusion Matrix"):
-    st.subheader("Classification Confusion Matrix")
-    import plotly.express as px
-    heatmap_fig = px.imshow(
-        confusion_matrix,
-        labels=dict(x="Predicted Intent", y="Actual Intent", color="Frequency"),
-        x=confusion_matrix.columns,
-        y=confusion_matrix.index,
-        text_auto=True
-    )
-    st.plotly_chart(heatmap_fig, use_container_width=True)
-
-
-# Footer
+# Footer (spans full width)
 st.write("---")
 st.caption("BERT Intent Classification Dashboard - Built with Streamlit")
