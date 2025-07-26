@@ -10,18 +10,15 @@ from huggingface_hub import hf_hub_download
 st.set_page_config(
     page_title="BERT Intent Dashboard",
     layout="wide",
-    initial_sidebar_state="expanded",
-    sidebar_width="30%" , # Optional: Ensures sidebar is open by default
-    # Adjust this 'width' value as needed. Default is usually around 200px-250px.
-    # Try values like "300px", "350px", or "400px"
-    # You can also use percentage like "20%"
-    # Note: This controls the *initial* width, users can still drag it.
+    initial_sidebar_state="expanded", # This is correct
+    sidebar_width="350px", # Ensure this is 'sidebar_width', not just 'width'
     menu_items={
-        'Get Help': 'https://www.extremely.com/help', # Example, customize or remove
-        'Report a bug': "https://www.extremely.com/bug", # Example, customize or remove
-        'About': "# This is a header. This is an *extremely* cool app!" # Example, customize or remove
+        'Get Help': 'https://www.extremely.com/help',
+        'Report a bug': "https://www.extremely.com/bug",
+        'About': "# This is a header. This is an *extremely* cool app!"
     }
 )
+
 
 # Selecting a confidence threshold for 'other' intent ---
 CONFIDENCE_THRESHOLD = 0.60
