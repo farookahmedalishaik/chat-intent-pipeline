@@ -5,8 +5,23 @@ import torch
 from transformers import BertTokenizer, BertForSequenceClassification
 from huggingface_hub import hf_hub_download
 
-# Page configuration
-st.set_page_config(page_title ="BERT Intent Dashboard", layout="wide")
+
+# Make the sidebar wider by adjusting the 'initial_sidebar_state' and 'width' parameters
+st.set_page_config(
+    page_title="BERT Intent Dashboard",
+    layout="wide",
+    initial_sidebar_state="expanded"
+    sidebar_width="30%" , # Optional: Ensures sidebar is open by default
+    # Adjust this 'width' value as needed. Default is usually around 200px-250px.
+    # Try values like "300px", "350px", or "400px"
+    # You can also use percentage like "20%"
+    # Note: This controls the *initial* width, users can still drag it.
+    menu_items={
+        'Get Help': 'https://www.extremely.com/help', # Example, customize or remove
+        'Report a bug': "https://www.extremely.com/bug", # Example, customize or remove
+        'About': "# This is a header. This is an *extremely* cool app!" # Example, customize or remove
+    }
+)
 
 # Selecting a confidence threshold for 'other' intent ---
 CONFIDENCE_THRESHOLD = 0.60
@@ -80,10 +95,11 @@ test_metrics, confusion_matrix = load_evaluation_data()
 
 
 # --- Sidebar Content (Leftmost Column) ---
-st.sidebar.title("Dashboard Controls")
+st.sidebar.title("📚 Understanding the Categories")
 
 # Move 'Understanding Categories' into the sidebar
-st.sidebar.header("📚 Understanding the Categories")
+# st.sidebar.header("")
+
 st.sidebar.info("💡 This tool classifies customer messages into specific intent categories. Knowing these helps you craft effective queries:")
 st.sidebar.markdown(INTENT_GUIDANCE_TEXT) # Display the detailed list of intents
 
