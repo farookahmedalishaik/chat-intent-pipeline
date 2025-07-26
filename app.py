@@ -10,7 +10,7 @@ from huggingface_hub import hf_hub_download
 st.set_page_config(
     page_title="BERT Intent Dashboard",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
     sidebar_width="30%" , # Optional: Ensures sidebar is open by default
     # Adjust this 'width' value as needed. Default is usually around 200px-250px.
     # Try values like "300px", "350px", or "400px"
