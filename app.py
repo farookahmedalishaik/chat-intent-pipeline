@@ -3,10 +3,43 @@ import streamlit as st
 import pandas as pd
 import torch
 from transformers import BertTokenizer, BertForSequenceClassification
-from huggingface_hub import hf_hub_download # <-- ADD THIS IMPORT
+from huggingface_hub import hf_hub_download
 
 # Page configuration
 st.set_page_config(page_title ="BERT Intent Dashboard", layout="wide")
+
+# Selecting a confidence threshold for 'other' intent ---
+CONFIDENCE_THRESHOLD = 0.60
+
+
+
+# User guidance text for available intents
+INTENT_GUIDANCE_TEXT = """
+This tool classifies messages into the following categories:
+- **`request_invoice`**: Inquiries about invoices or getting an invoice.
+- **`manage_shipping_address`**: Requests to change or set up shipping addresses.
+- **`contact_support`**: Direct requests to speak with customer service or a human agent.
+- **`general_feedback`**: Reviews, suggestions, or thank you messages.
+- **`check_promotions`**: Questions about ongoing promotions, offers, discounts, or sales.
+- **`delivery_information`**: Inquiries about delivery options or periods.
+- **`queries_related_to_order`**: Questions about placing, tracking, canceling, or changing an order.
+- **`queries_related_to_refund`**: Questions about getting or tracking a refund, or refund policy.
+- **`account_management`**: Issues or requests related to creating, deleting, editing, switching, or recovering an account, and registration problems.
+- **`queries_related_to_payments/fee`**: Questions about payment methods, payment issues, or cancellation fees.
+- **`building/store hours`**: Inquiries about operational hours.
+- **`newsletter_subscription`**: Requests to subscribe or manage newsletter subscriptions.
+- **`complaint`**: Explicit complaints.
+- **`other`**: Messages that do not fit into the above categories (assigned if confidence is low).
+"""
+
+
+
+
+
+
+
+
+
 
 # Load BERT model,tokenizer,CSVs
 @st.cache_resource
@@ -46,54 +79,78 @@ available_intents = label_mapping["label"].tolist()
 test_metrics, confusion_matrix = load_evaluation_data()
 
 
-# Sidebar inputs
+# Sidebar inputs (#for future use)
 st.sidebar.title("Dashboard Controls")
-display_confusion_matrix = st.sidebar.checkbox("Display Confusion Matrix", value=True)
-input_message = st.sidebar.text_area("Test message for intent prediction:")
+st.sidebar.text("Enter a message for prediction:") # main columns
 
-
-# Title
+# Main Content 
 st.title("🔍 BERT Intent Classification Dashboard")
 
+# two columns for input and guidance
+col1, col2 = st.columns(2)
 
-# Show model performance
-st.header("Model Performance on Test Data")
-metrics_display = test_metrics.set_index("metric") # Using the loaded metrics_df
-st.dataframe(metrics_display)
+with col1:
+    st.header("💬 Enter Your Message")
+    input_message = st.text_area("Type your message here:", height=150, label_visibility="collapsed") # label_visibility to hide default label
+    
+    # Live prediction Interface (moved to col1)
+    st.header("🔮 Intent Prediction Result")
+    if input_message.strip():
+        # Tokenize the input
+        model_inputs = tokenizer(
+            input_message, 
+            padding=True, 
+            truncation=True,
+            return_tensors="pt", 
+            max_length=128
+        )
+        
+        # Get prediction
+        with torch.no_grad():
+            model_output = model(**model_inputs)
+            # Apply softmax to get probabilities
+            probabilities = torch.softmax(model_output.logits, dim=-1)
+            
+            # Get the highest probability and its corresponding class index
+            max_probability = probabilities.max().item()
+            predicted_class_idx = probabilities.argmax(dim=-1).item()
+        
+        # Determine the predicted intent based on confidence
+        if max_probability >= CONFIDENCE_THRESHOLD:
+            predicted_intent = available_intents[predicted_class_idx]
+        else:
+            predicted_intent = "other" # Assign "other" when confidence is too low
+            
+        st.markdown(f"**Predicted Intent:** `<span style='color:green; font-size: 24px;'>{predicted_intent}</span>", unsafe_allow_html=True)
+        st.info(f"Confidence Score: `{max_probability:.2f}` (Threshold: `{CONFIDENCE_THRESHOLD:.2f}`)")
+    else:
+        st.info("Enter a message above to see its predicted intent.")
 
-# Confusion matrix
-if display_confusion_matrix:
+with col2:
+    st.header("📚 Understanding the Categories")
+    st.info("💡 This tool classifies customer messages into specific intent categories. Knowing these helps you craft effective queries:")
+    st.markdown(INTENT_GUIDANCE_TEXT) # Display the detailed list of intents
+
+# Horizontal separator below the columns
+st.markdown("---")
+
+# Expandable sections for performance metrics and confusion matrix (kept below columns)
+with st.expander("📊 View Model Performance Metrics"):
+    st.subheader("Model Performance on Test Data")
+    metrics_display = test_metrics.set_index("metric")
+    st.dataframe(metrics_display)
+
+with st.expander("📈 View Classification Confusion Matrix"):
     st.subheader("Classification Confusion Matrix")
     import plotly.express as px
     heatmap_fig = px.imshow(
-        confusion_matrix, # Using the loaded cm_df
-        labels=dict(x = "Predicted Intent", y = "Actual Intent", color = "Frequency"),
-        x = confusion_matrix.columns,
-        y = confusion_matrix.index,
-        text_auto = True
+        confusion_matrix,
+        labels=dict(x="Predicted Intent", y="Actual Intent", color="Frequency"),
+        x=confusion_matrix.columns,
+        y=confusion_matrix.index,
+        text_auto=True
     )
-    st.plotly_chart(heatmap_fig, use_container_width =True)
-
-
-# Live prediction Interface
-st.header("🔮 Intent Prediction Tool")
-if input_message.strip():
-    # Tokenize the input
-    model_inputs = tokenizer(
-        input_message, 
-        padding =True, 
-        truncation = True,
-        return_tensors = "pt", 
-        max_length = 128
-    )
-    
-    # Get prediction
-    with torch.no_grad():
-        model_output = model(**model_inputs)
-        predicted_class = model_output.logits.argmax(dim=-1).item()
-    
-    predicted_intent = available_intents[predicted_class]
-    st.markdown(f"**Predicted Intent:** `{predicted_intent}`")
+    st.plotly_chart(heatmap_fig, use_container_width=True)
 
 
 # Footer

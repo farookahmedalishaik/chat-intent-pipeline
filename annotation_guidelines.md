@@ -1,3 +1,28 @@
+Account Management:
+
+create_account, delete_account, edit_account, switch_account, recover_password, registration_problems, newsletter_subscription
+
+Order & Shipping Management:
+
+place_order, track_order, cancel_order, change_order, change_shipping_address, set_up_shipping_address, delivery_options, delivery_period
+
+Billing & Refunds:
+
+check_invoice, get_invoice, check_payment_methods, payment_issue, get_refund, track_refund, check_refund_policy, check_cancellation_fee (moved here for financial context)
+
+Customer Service & Feedback:
+
+contact_customer_service, contact_human_agent, review, feedback/suggestions/thank you, complaint
+
+General Information:
+
+promotions/offers/discount/sales, building/store hours
+
+
+
+
+
+
 cancel_order
 - **Definition:** 
 - **Positive Examples:**  
