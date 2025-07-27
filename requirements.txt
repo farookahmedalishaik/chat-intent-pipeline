@@ -10,13 +10,14 @@ scikit-learn
 numpy
 torch
 transformers
+transformers[torch]
 huggingface-hub
 
 # Model persistence
-#joblib
+joblib
 
 # Annotation (for Phase 2)
-#label-studio
+label-studio
 
 # Dashboard & plotting
 streamlit

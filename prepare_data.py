@@ -5,8 +5,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from transformers import BertTokenizer
 import torch
-from sqlalchemy import create_engine, text # Added for database 
-import shutil # to get shutil.rmtree (!!permanently deletes the folder and its contents!!)
+from sqlalchemy import create_engine, text
+import shutil
 
 # Database connection
 conn_str = "mysql+pymysql://intent_user:password:intent_db@localhost:3306/intent_db"
@@ -14,7 +14,6 @@ engine = create_engine(conn_str)
 
 
 # Delete and recreate artifacts folder if there is any
-#'artifacts' is the folder
 if os.path.exists("artifacts"):
     shutil.rmtree("artifacts")
     print(f" 'artifacts' folder deleted.")
@@ -25,10 +24,17 @@ print(f" 'artifacts' folder created")
 # Load data from MySQL database
 print("Loading data from MySQL database")
 with engine.connect() as conn:
-    result = conn.execute(text("SELECT text, label FROM messages")) #'text()' for a raw SQL query
-    data = result.fetchall() # Fetch all rows and convert to a list of dictionaries
-    df = pd.DataFrame(data, columns=result.keys()) # Convert list of tuples/rows to dataframe
+    result = conn.execute(text("SELECT text, label FROM messages"))
+    data = result.fetchall()
+    df = pd.DataFrame(data, columns=result.keys())
 print(f"Loaded {len(df)} rows from MySQL for data preparation")
+
+# --- DIAGNOSTIC PRINT STATEMENTS ---
+print("\n--- Diagnostic Check ---")
+print(f"Unique labels found in DataFrame after loading from MySQL: {df['label'].unique().tolist()}")
+print(f"Count of unique labels found: {len(df['label'].unique())}")
+print("--- End Diagnostic Check ---\n")
+# --- END DIAGNOSTIC PRINT STATEMENTS ---
 
 
 # Using only 'text' and 'label'
@@ -43,7 +49,7 @@ encoded_labels = label_encoder.fit_transform(labels)
 pd.DataFrame({
     "label": label_encoder.classes_,
     "id": range(len(label_encoder.classes_))
-}).to_csv(os.path.join("artifacts", "label_mapping.csv"), index = False) # Use os.path.join
+}).to_csv(os.path.join("artifacts", "label_mapping.csv"), index = False)
 
 # Train/validation/test split (80/10/10)
 X_temp, X_test, y_temp, y_test = train_test_split(
@@ -77,18 +83,18 @@ torch.save({
     "input_ids": train_encodings["input_ids"],
     "attention_mask": train_encodings["attention_mask"],
     "labels": torch.tensor(y_train)
-}, os.path.join("artifacts", "train_data.pt")) #Use os.path.join
+}, os.path.join("artifacts", "train_data.pt"))
 
 torch.save({
     "input_ids": val_encodings["input_ids"],
     "attention_mask": val_encodings["attention_mask"],
     "labels": torch.tensor(y_val)
-}, os.path.join("artifacts", "val_data.pt")) # Use os.path.join
+}, os.path.join("artifacts", "val_data.pt"))
 
 torch.save({
     "input_ids": test_encodings["input_ids"],
     "attention_mask": test_encodings["attention_mask"],
     "labels": torch.tensor(y_test)
-}, os.path.join("artifacts", "test_data.pt")) #Use os.path.join
+}, os.path.join("artifacts", "test_data.pt"))
 
 print("Data preparation is completed. And Tensors are saved to 'artifacts/'")

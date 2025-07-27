@@ -6,18 +6,11 @@ from transformers import BertTokenizer, BertForSequenceClassification
 from huggingface_hub import hf_hub_download
 
 
-# Make the sidebar wider by adjusting the 'initial_sidebar_state' and 'width' parameters
-st.set_page_config(
-    page_title="BERT Intent Dashboard",
-    layout="wide",
-    initial_sidebar_state="expanded", # This is correct
-    sidebar_width="350px", # Ensure this is 'sidebar_width', not just 'width'
-    menu_items={
-        'Get Help': 'https://www.extremely.com/help',
-        'Report a bug': "https://www.extremely.com/bug",
-        'About': "# This is a header. This is an *extremely* cool app!"
-    }
-)
+
+# Page configuration (sidebar_width removed)
+st.set_page_config(page_title="BERT Intent Dashboard",layout="wide",initial_sidebar_state="expanded")
+
+
 
 
 # Selecting a confidence threshold for 'other' intent ---
