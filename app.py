@@ -8,7 +8,7 @@ from huggingface_hub import hf_hub_download
 
 
 # Page configuration (sidebar_width removed)
-st.set_page_config(page_title="BERT Intent Dashboard",layout="wide",initial_sidebar_state="expanded")
+st.set_page_config(page_title="BERT Intent Dashboard",layout="wide")
 
 
 
