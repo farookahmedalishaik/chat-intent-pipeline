@@ -14,7 +14,7 @@ st.set_page_config(page_title="BERT Intent Dashboard",layout="wide")
 
 
 # Selecting a confidence threshold for 'other' intent ---
-CONFIDENCE_THRESHOLD = 0.60
+CONFIDENCE_THRESHOLD = 0.75
 
 
 
