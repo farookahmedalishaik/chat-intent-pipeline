@@ -1,29 +1,11 @@
-# Data handling
-pandas
-
-# Databases
-SQLAlchemy
-PyMySQL
-
-# Machine learning & NLP
-scikit-learn
-numpy
-torch
-transformers
+streamlit==1.36.0
+transformers==4.41.2
 transformers[torch]
-huggingface-hub
-
-# Model persistence
-joblib
-
-# Annotation (for Phase 2)
-label-studio
-
-# Dashboard & plotting
-streamlit
-plotly
-matplotlib
-seaborn
-
-# direct MySQL connector (just in case)
-mysql-connector-python
+torch==2.3.1 # Explicitly list torch, as transformers[torch] can be tricky with exact pip freeze
+accelerate==0.31.0 # Transformers now heavily relies on accelerate
+scikit-learn==1.5.0
+pandas==2.2.2
+numpy==1.26.4
+SQLAlchemy==2.0.30
+pymysql==1.1.0
+huggingface_hub==0.23.3 # Good to explicitly list, even if pulled by transformers

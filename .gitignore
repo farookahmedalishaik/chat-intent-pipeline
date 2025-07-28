@@ -5,6 +5,8 @@ bert_output/
 # Ignore virtual environment
 venv/
 
+.git/
+
 # Ignore OS or editor files
 __pycache__/
 *.pyc

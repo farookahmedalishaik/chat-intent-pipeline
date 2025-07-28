@@ -9,7 +9,15 @@ from sqlalchemy import create_engine, text
 import shutil
 
 # Database connection
-conn_str = "mysql+pymysql://intent_user:password:intent_db@localhost:3306/intent_db"
+
+# Get the database host from an environment variable.
+# If the environment variable DB_HOST is not set (e.g., when running locally outside Docker),
+# it will default to 'localhost'.
+# When running in Docker, we will explicitly set DB_HOST to 'host.docker.internal'.
+DB_HOST = os.environ.get("DB_HOST", "localhost")
+
+# Construct the connection string using the determined host
+conn_str = f"mysql+pymysql://intent_user:password:intent_db@{DB_HOST}:3306/intent_db"
 engine = create_engine(conn_str)
 
 
