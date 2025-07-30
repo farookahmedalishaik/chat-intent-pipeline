@@ -8,7 +8,7 @@ from huggingface_hub import hf_hub_download
 
 
 # Page configuration
-st.set_page_config(page_title="BERT Intent Dashboard",layout="wide")
+st.set_page_config(page_title="BERT Intent Dashboard")
 
 
 
