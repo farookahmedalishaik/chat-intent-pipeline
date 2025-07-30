@@ -1,15 +1,30 @@
 #push_model.py
 import os
-from huggingface_hub import HfApi
+from huggingface_hub import HfApi, login
+from dotenv import load_dotenv
 
+# Load variables from the .env file
+load_dotenv()
+
+# Hugging Face token will be loaded from the environment variable & available because of the load_dotenv() call
+hf_token = os.environ.get("HF_TOKEN")
+
+# Check if the token was found
+if not hf_token:
+    print("There's an error, hugging face token not present found check your .env file for the token.")
+    exit()
+
+# Log in to Hugging Face using the token
+login(token =hf_token)
 api = HfApi()
+
 
 # Hugging face credentials
 hf_username = "farookahmedalishaik"
 hf_repo_id = f"{hf_username}/intent-bert"
 
 # Create repository on Hugging Face Hub using via HTTP but not Git clone
-api.create_repo(repo_id = hf_repo_id, private = False, exist_ok = True) #private=False means it's a public model
+api.create_repo(repo_id = hf_repo_id, private = False, exist_ok = True) #private =False means it's a public model
 
 local_model_dir = "artifacts/bert_intent_model"
 local_metrics_file = "artifacts/test_metrics_bert.csv"

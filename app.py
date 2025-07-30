@@ -7,7 +7,7 @@ from huggingface_hub import hf_hub_download
 
 
 
-# Page configuration (sidebar_width removed)
+# Page configuration
 st.set_page_config(page_title="BERT Intent Dashboard",layout="wide")
 
 
@@ -58,7 +58,7 @@ def load_bert_and_data():
     bert_model.eval()
 
     # Download label mapping CSV from Hugging Face Hub
-    label_file = hf_hub_download(repo_id=hf_model_repo, filename="label_mapping.csv")
+    label_file = hf_hub_download(repo_id = hf_model_repo, filename = "label_mapping.csv")
     label_data = pd.read_csv(label_file)
 
     return bert_tokenizer, bert_model, label_data
@@ -68,12 +68,12 @@ def load_evaluation_data():
     hf_model_repo = "farookahmedalishaik/intent-bert"
     
     # Performance metrics
-    metrics_file = hf_hub_download(repo_id=hf_model_repo, filename="test_metrics_bert.csv")
+    metrics_file = hf_hub_download(repo_id = hf_model_repo, filename = "test_metrics_bert.csv")
     test_metrics = pd.read_csv(metrics_file)
     
     # Confusion matrix data
-    confusion_file = hf_hub_download(repo_id=hf_model_repo, filename="test_confusion_bert.csv")
-    confusion_matrix = pd.read_csv(confusion_file, index_col=0)
+    confusion_file = hf_hub_download(repo_id = hf_model_repo, filename = "test_confusion_bert.csv")
+    confusion_matrix = pd.read_csv(confusion_file, index_col = 0)
     
     return test_metrics, confusion_matrix
 
@@ -84,52 +84,51 @@ available_intents = label_mapping["label"].tolist()
 test_metrics, confusion_matrix = load_evaluation_data()
 
 
-# --- Sidebar Content (Leftmost Column) ---
+# Sidebar (Leftmost Column) ---
 st.sidebar.title("📚 Understanding the Categories")
 
-# Move 'Understanding Categories' into the sidebar
 # st.sidebar.header("")
 
 st.sidebar.info("💡 This tool classifies customer messages into specific intent categories. Knowing these helps you craft effective queries:")
-st.sidebar.markdown(INTENT_GUIDANCE_TEXT) # Display the detailed list of intents
+st.sidebar.markdown(INTENT_GUIDANCE_TEXT) # To display the detailed list of intents
 
 
-# --- Main Content Area (Central Column) ---
+# --- Main Content (Middle Column) ---
 st.title("🔍 BERT Intent Classification Dashboard")
 
-# Input message and prediction in the main area
+# Input message & prediction
 st.header("💬 Enter Your Message")
-input_message = st.text_area("Type your message here:", height=150, label_visibility="collapsed") # Input in main area
+input_message = st.text_area("Type your message here:", height = 150, label_visibility = "collapsed") # Input in main area
 
 # Live prediction Interface
 st.header("🔮 Intent Prediction Result")
 if input_message.strip():
-    # Tokenize the input
+    # Tokenizing
     model_inputs = tokenizer(
         input_message, 
-        padding=True, 
-        truncation=True,
-        return_tensors="pt", 
-        max_length=128
+        padding =True, 
+        truncation = True,
+        return_tensors = "pt", 
+        max_length = 128
     )
     
     # Get prediction
     with torch.no_grad():
         model_output = model(**model_inputs)
         # Apply softmax to get probabilities
-        probabilities = torch.softmax(model_output.logits, dim=-1)
+        probabilities = torch.softmax(model_output.logits, dim = -1)
         
-        # Get the highest probability and its corresponding class index
+        # Get highest probability and its corresponding class index
         max_probability = probabilities.max().item()
-        predicted_class_idx = probabilities.argmax(dim=-1).item()
+        predicted_class_idx = probabilities.argmax(dim = -1).item()
     
-    # Determine the predicted intent based on confidence
+    # Determine the predicted intent based on confidence threshold
     if max_probability >= CONFIDENCE_THRESHOLD:
         predicted_intent = available_intents[predicted_class_idx]
     else:
-        predicted_intent = "other" # Assign "other" when confidence is too low
+        predicted_intent = "other" # "other" when confidence is very low
         
-    st.markdown(f"**Predicted Intent:** `<span style='color:green; font-size: 24px;'>{predicted_intent}</span>", unsafe_allow_html=True)
+    st.markdown(f"**Predicted Intent:** `<span style ='color:green; font-size: 24px;'>{predicted_intent}</span>", unsafe_allow_html=True)
     st.info(f"Confidence Score: `{max_probability:.2f}` (Threshold: `{CONFIDENCE_THRESHOLD:.2f}`)")
 else:
     st.info("Enter a message above to see its predicted intent.")
@@ -138,7 +137,7 @@ else:
 # Horizontal separator
 st.markdown("---")
 
-# Expandable sections for performance metrics and confusion matrix (remain in main area)
+# Expandable sections view for performance metrics and confusion matrix
 with st.expander("📊 View Model Performance Metrics"):
     st.subheader("Model Performance on Test Data")
     metrics_display = test_metrics.set_index("metric")
@@ -149,14 +148,14 @@ with st.expander("📈 View Classification Confusion Matrix"):
     import plotly.express as px
     heatmap_fig = px.imshow(
         confusion_matrix,
-        labels=dict(x="Predicted Intent", y="Actual Intent", color="Frequency"),
-        x=confusion_matrix.columns,
-        y=confusion_matrix.index,
-        text_auto=True
+        labels = dict(x = "Predicted Intent", y = "Actual Intent", color = "Frequency"),
+        x = confusion_matrix.columns,
+        y = confusion_matrix.index,
+        text_auto = True
     )
-    st.plotly_chart(heatmap_fig, use_container_width=True)
+    st.plotly_chart(heatmap_fig, use_container_width =True)
 
 
-# Footer (spans full width)
+# Footer
 st.write("---")
 st.caption("BERT Intent Classification Dashboard - Built with Streamlit")

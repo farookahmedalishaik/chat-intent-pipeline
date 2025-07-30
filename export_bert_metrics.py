@@ -1,4 +1,4 @@
-# export_bert_metrics.py
+#export_bert_metrics.py
 import os
 import torch
 import pandas as pd
@@ -32,20 +32,20 @@ bert_model.eval()
 
 # Get predictions on test set
 with torch.no_grad():
-    outputs = bert_model(input_ids=input_ids, attention_mask=attention_mask)
+    outputs = bert_model(input_ids = input_ids, attention_mask = attention_mask)
     logits = outputs.logits
     y_pred = logits.argmax(dim=-1).numpy()
 
 # Classification report
 report_dict = classification_report(
-    y_true, y_pred, target_names=labels, output_dict=True
+    y_true, y_pred, target_names =labels, output_dict = True
 )
-df_metrics = pd.DataFrame(report_dict).T.reset_index().rename(columns={"index":"metric"})
-df_metrics.to_csv("artifacts/test_metrics_bert.csv", index=False)
+df_metrics = pd.DataFrame(report_dict).T.reset_index().rename(columns = {"index":"metric"})
+df_metrics.to_csv("artifacts/test_metrics_bert.csv", index = False)
 
 # Confusion matrix
 cm = confusion_matrix(y_true, y_pred)
-df_cm = pd.DataFrame(cm, index=labels, columns=labels)
+df_cm = pd.DataFrame(cm, index = labels, columns = labels)
 df_cm.to_csv("artifacts/test_confusion_bert.csv")
 
 print("BERT test metrics saved to artifacts/test_metrics_bert.csv")

@@ -15,14 +15,14 @@ num_labels = len(label_map)
 train_data = torch.load("artifacts/train_data.pt")
 val_data = torch.load("artifacts/val_data.pt")
 
-# Create a PyTorch Dataset class
+# PyTorch Dataset class
 class IntentDataset(Dataset):
     def __init__(self, encodings, labels):
         self.encodings = encodings
         self.labels = labels
     def __getitem__(self, idx):
-        # this line return a single dictionary
-        item = {k: v[idx] for k, v in self.encodings.items()}
+        
+        item = {k: v[idx] for k, v in self.encodings.items()}# returns a single dictionary
         item["labels"] = self.labels[idx] 
         return item
     def __len__(self):

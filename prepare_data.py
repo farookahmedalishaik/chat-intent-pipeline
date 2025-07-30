@@ -10,13 +10,12 @@ import shutil
 
 # Database connection
 
-# Get the database host from an environment variable.
-# If the environment variable DB_HOST is not set (e.g., when running locally outside Docker),
-# it will default to 'localhost'.
-# When running in Docker, we will explicitly set DB_HOST to 'host.docker.internal'.
+# database host is from an environment variable.
+# If the environment variable DB_HOST is not set like when running locally outside Docker it will default to 'localhost'.
+# But When running in Docker, we will explicitly set DB_HOST to 'host.docker.internal'.
 DB_HOST = os.environ.get("DB_HOST", "localhost")
 
-# Construct the connection string using the determined host
+# connection string with respective host
 conn_str = f"mysql+pymysql://intent_user:password:intent_db@{DB_HOST}:3306/intent_db"
 engine = create_engine(conn_str)
 
@@ -34,15 +33,13 @@ print("Loading data from MySQL database")
 with engine.connect() as conn:
     result = conn.execute(text("SELECT text, label FROM messages"))
     data = result.fetchall()
-    df = pd.DataFrame(data, columns=result.keys())
+    df = pd.DataFrame(data, columns = result.keys())
 print(f"Loaded {len(df)} rows from MySQL for data preparation")
 
-# --- DIAGNOSTIC PRINT STATEMENTS ---
-print("\n--- Diagnostic Check ---")
-print(f"Unique labels found in DataFrame after loading from MySQL: {df['label'].unique().tolist()}")
-print(f"Count of unique labels found: {len(df['label'].unique())}")
-print("--- End Diagnostic Check ---\n")
-# --- END DIAGNOSTIC PRINT STATEMENTS ---
+
+print(f"Unique labels in dataframe after loading from mysql: {df['label'].unique().tolist()}")
+print(f"Count of unique labels: {len(df['label'].unique())}")
+
 
 
 # Using only 'text' and 'label'
@@ -59,7 +56,7 @@ pd.DataFrame({
     "id": range(len(label_encoder.classes_))
 }).to_csv(os.path.join("artifacts", "label_mapping.csv"), index = False)
 
-# Train/validation/test split (80/10/10)
+# Train/validation/test split = (80/10/10)
 X_temp, X_test, y_temp, y_test = train_test_split(
     texts, encoded_labels, test_size = 0.1, random_state = 42, stratify = encoded_labels
 )
@@ -105,4 +102,4 @@ torch.save({
     "labels": torch.tensor(y_test)
 }, os.path.join("artifacts", "test_data.pt"))
 
-print("Data preparation is completed. And Tensors are saved to 'artifacts/'")
+print("Data preparation is completed. And Tensors are saved to 'artifacts/' ")

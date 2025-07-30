@@ -8,7 +8,7 @@ csv_file = "data/cleaned_all.csv"
 
 # Check if data file exists
 if not os.path.exists(csv_file):
-    raise FileNotFoundError(f"Data file not found: {csv_file}. Run ingest_clean.py first.")
+    raise FileNotFoundError(f"Data file not found try running 'ingest_clean.py' first.")
   
 df = pd.read_csv(csv_file)
 # Select only the 'text' and 'label' columns and only these columns are inserted into the MySQL table.
@@ -34,5 +34,5 @@ CREATE TABLE messages (
 
 
 # Load data into the table
-df.to_sql("messages", engine, if_exists="append", index=False)
+df.to_sql("messages", engine, if_exists = "append", index = False)
 print(f"Loaded {len(df)} rows into MySQL table 'messages' from {csv_file}.")
