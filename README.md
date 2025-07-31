@@ -121,7 +121,7 @@ The project follows a sequential data and model flow, ensuring modularity and re
     L --> M[Streamlit Cloud Deployment];
     M --> N[Live Web Application];
     N --> O[User Interaction];
-
+```
 
 
 
