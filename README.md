@@ -14,7 +14,7 @@ This repository contains an end‑to‑end pipeline for classifying user intents
 * **Platforms:** GitHub, Hugging Face Hub, Streamlit Cloud
 * **Languages:** Python
 * **Databases:** MySQL
-* **Libraries:** `transformers` (Hugging Face), `PyTorch`, `pandas`, `numpy`, `scikit-learn`, `sqlalchemy`, ``pymysql`, `plotly`, `streamlit`, `huggingface_hub`
+* **Libraries:** `transformers` (Hugging Face), `PyTorch`, `pandas`, `numpy`, `scikit-learn`, `sqlalchemy`, `pymysql`, `plotly`, `streamlit`, `huggingface_hub`
 
 
 
@@ -44,7 +44,7 @@ This repository contains an end‑to‑end pipeline for classifying user intents
 
 ### What does the project do?
 
-This project implements a complete, end-to-end Machine Learning Operations (MLOps) pipeline for **Intent Classification**. It automatically processes raw text messages, fine-tunes a powerful **BERT (Bidirectional Encoder Representations from Transformers)** model to understand and categorize the underlying intent of these messages, and then deploys this model as an interactive web application for real-time predictions. The pipeline handles everything from data ingestion and cleaning, through secure storage in a MySQL database, to model training, evaluation, versioning on Hugging Face Hub, and public deployment on Streamlit Cloud.
+This project implements a complete, end-to-end Machine Learning Operations (MLOps)/ AI Data Analyst pipeline for **Intent Classification**. It automatically processes raw text messages, fine-tunes a powerful **BERT (Bidirectional Encoder Representations from Transformers)** model to understand and categorize the underlying intent of these messages, and then deploys this model as an interactive web application for real-time predictions. The pipeline handles everything from data ingestion and cleaning, through secure storage in a **MySQL** database, to model training, evaluation, versioning on **Hugging Face Hub**, and public deployment on **Streamlit Cloud**.
 
 ### What does the project showcase?
 
@@ -129,7 +129,8 @@ The project follows a sequential data and model flow, ensuring modularity and re
 # 🚀 Live Demo
 Experience the deployed application and test its intent classification capabilities in real-time:
 
-👉 https://chat-intent-pipeline-6lzekhn44pl4ep6kklhdjk.streamlit.app/  [Live Streamlit App]
+👉 https://chat-intent-pipeline-qvnch3q6hnnrknrjdnurdk.streamlit.app/ [Live Streamlit App]
+
 
 
 # 📊 Model Performance
@@ -156,10 +157,10 @@ These results demonstrate the model's high accuracy and effectiveness in identif
 
 The fine-tuned BERT model's performance on the held-out test set is summarized below. A full interactive confusion matrix is available in the live Streamlit dashboard for deeper analysis.
 
-*Accuracy = 0.925
-*Precision =0.920
-*Recall = 0.930
-*F1-Score = 0.925
+* Accuracy = 0.925
+* Precision =0.920
+* Recall = 0.930
+* F1-Score = 0.925
 
 
 
@@ -185,18 +186,18 @@ It's highly recommended to use a virtual environment.
 * pip install -r requirements.txt
 
 ## 4. MySQL Database Setup
-*Ensure you have a MySQL server running (e.g., via Docker, XAMPP, or a standalone installation).
+* Ensure you have a MySQL server running like MySQL workbench installation.
 
-*Create a database named `intent_db` and a user `intent_user` with password (or update `conn_str` in `load_to_mysql.py` and `prepare_data.py` with your credentials).
+* Create a database named `intent_db` and a user `intent_user` with password (or update `conn_str` in `load_to_mysql.py` and `prepare_data.py` with your credentials).
 
-*Create the messages table:
+* Create the messages table:
 
-* CREATE TABLE messages (
-* id INT AUTO_INCREMENT PRIMARY KEY,
-* text TEXT NOT NULL,
-* label VARCHAR(255) NOT NULL,
-* original_label VARCHAR(255)
-* );
+    * CREATE TABLE messages (
+    * id INT AUTO_INCREMENT PRIMARY KEY,
+    * text TEXT NOT NULL,
+    * label VARCHAR(255) NOT NULL,
+    * original_label VARCHAR(255)
+    * );
 
 
 
@@ -205,7 +206,7 @@ To push models and data to Hugging Face Hub, you need to authenticate locally.
 
 * huggingface-cli login
 
-Follow the prompts to paste your Hugging Face token (ensure it has write access for pushing).
+Follow the prompts to paste your own Hugging Face token (and make sure it should has write access for pushing).
 
 
 ## 6. Run the Pipeline (Sequentially)
@@ -217,7 +218,7 @@ Execute each Python script in the following order from the project root. This wi
 ### Load Data to MySQL:
 * python load_to_mysql.py
 
-### Prepare Data for BERT (Creates/clears `artifacts/` folder):
+### Prepare Data for BERT (Creates/Clears `artifacts/` folder):
 * python prepare_data.py
 
 ### Fine-tune BERT Model (Creates `bert_output/` and updates `artifacts/bert_intent_model/`):
@@ -229,13 +230,12 @@ Execute each Python script in the following order from the project root. This wi
 ### Push Model & Artifacts to Hugging Face Hub:
 * python push_model.py
 
-
-## 7. Run Streamlit App Locally (for testing and optional)
+## 7. Run Streamlit App Locally (for testing local deployment)
 To test the Streamlit dashboard on your local machine:
 
 * streamlit run app.py
-This will open the application in your web browser.
 
+This will open the application in your web browser.
 
 
 # ☁️ Deployment
@@ -250,9 +250,8 @@ For reliable access to Hugging Face models during deployment, a **read-only Hugg
 * Link to your Hugging Face model page something as : https://huggingface.co/farookahmedalishaik/intent-bert
 
 
-
 # 8. Data Sources & Management
-This project utilizes a publicly available dataset for training and evaluating the intent classification model downloaded from kaggle.
+The intent classification model was trained and evaluated using a publicly available dataset from Kaggle, which was then merged with custom-generated synthetic data. This synthetic data includes a mix of standard English, common typographical errors, and slang to enhance the model's robustness.
 
 ## Primary Dataset:
 * Source: The core dataset for intent classification was acquired from **Kaggle**.
@@ -319,29 +318,3 @@ A special thanks to the following for providing essential resources:
 ## License
 This project is open-sourced under the **MIT License**. You are free to use, modify, and distribute this code, provided the original license and copyright notice are included.
 The dataset used in this project is subject to its own licensing terms on Kaggle. Please refer to the original Kaggle dataset page for specific details regarding its usage rights.
-
-
-
-
-
-1)Promotions & Discounts&sales &qureis related to promotions or discount 
-
-Examples: “Do you have any promo codes?” “Is there a student discount?”
-
-which month will get huge discounts..?
-
-does prmotional offer apply to my kids
-
-can i forward my discount coupon or promtion couopon to someone in my famiily
-
-when does the promoiton offer ends
-
-when doe sht discount ends
-
-what are the discounts for vaious kinds 
-
-
-
-2)Feedback / Suggestions / Thank You”
-
-3)“Opening Hours / Business Policies”
