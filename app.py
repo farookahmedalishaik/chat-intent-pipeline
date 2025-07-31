@@ -8,7 +8,7 @@ from huggingface_hub import hf_hub_download
 
 
 # Page Configuration
-st.set_page_confit(page_title = "BERT Intent Dashboard")
+st.set_page_config(page_title = "BERT Intent Dashboard")
 
 
 # Selecting a confidence threshold for 'other' intent ---
