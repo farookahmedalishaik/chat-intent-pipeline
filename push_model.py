@@ -30,6 +30,7 @@ local_model_dir = "artifacts/bert_intent_model"
 local_metrics_file = "artifacts/test_metrics_bert.csv"
 local_confusion_file = "artifacts/test_confusion_bert.csv"
 local_label_map_file = "artifacts/label_mapping.csv"
+local_test_data_file = "artifacts/test_data.pt"  
 
 
 # Check if the local model directory exists
@@ -86,5 +87,21 @@ if os.path.exists(local_label_map_file):
     print(f"Uploaded {local_label_map_file}")
 else:
     print(f"{local_label_map_file} not found (upload skip.")
+
+
+
+
+    # --- ADDED CODE TO UPLOAD test_data.pt ---
+if os.path.exists(local_test_data_file):
+    api.upload_file(
+        path_or_fileobj=local_test_data_file,
+        path_in_repo="test_data.pt",
+        repo_id=hf_repo_id,
+        repo_type="model",
+        commit_message="Add tokenized test data for evaluation dashboard",
+    )
+    print(f"Uploaded {local_test_data_file}")
+else:
+    print(f"{local_test_data_file} not found (upload skip)")
 
 print(f"All files are pushed successfully to {hf_repo_id}")
