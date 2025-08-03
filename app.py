@@ -150,8 +150,8 @@ if input_message.strip():
     conn.execute("CREATE TABLE IF NOT EXISTS logs (ts TIMESTAMP, intent TEXT)")
     # Insert the timestamp and predicted intent into the log table.
     conn.execute(
-        "INSERT INTO logs VALUES (?, ?)",
-        (pd.Timestamp.now(), predicted_intent)
+    "INSERT INTO logs VALUES (?, ?)",
+    (pd.Timestamp.now().isoformat(), predicted_intent)
     )
     # Commit the changes and close the connection.
     conn.commit()

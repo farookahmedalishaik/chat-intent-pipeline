@@ -40,18 +40,27 @@ with torch.no_grad():
     y_pred = outputs.logits.argmax(dim=-1).numpy()
 
 # 6) Prepare a DataFrame of errors
-#    We need the original texts—load from your cleaned CSV if needed
-#    Here we assume you saved test_texts in the PT file; if not, reload from CSV.
+#    We need the original texts—load from your cleaned CSV if needed
+#    Here we assume you saved test_texts in the PT file; if not, reload from CSV.
 try:
     test_texts = data["texts"]
 except KeyError:
+    print("Test texts not found in test_data.pt. Re-running data split to retrieve them.")
     # Fallback: reload cleaned CSV and split in same order
     df_all = pd.read_csv("data/cleaned_all.csv")
-    # assuming you used consistent train/val/test split
+    
+    # We need to re-create the full list of encoded labels to perform the split correctly
+    from sklearn.preprocessing import LabelEncoder
+    label_encoder = LabelEncoder()
+    # Fit on the full set of labels
+    encoded_labels_all = label_encoder.fit_transform(df_all.label.tolist())
+
+    # Now, perform the exact same train_test_split as in prepare_data.py
+    # We use the full texts and the full encoded labels
     from sklearn.model_selection import train_test_split
-    X_temp, X_test, _, _ = train_test_split(
-        df_all.text.tolist(), y_true, test_size=0.1,
-        random_state=42, stratify=y_true
+    X_temp, X_test, y_temp, y_test = train_test_split(
+        df_all.text.tolist(), encoded_labels_all, test_size=0.1, 
+        random_state=42, stratify=encoded_labels_all
     )
     test_texts = X_test
 

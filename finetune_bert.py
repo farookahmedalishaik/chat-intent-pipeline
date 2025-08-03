@@ -92,22 +92,22 @@ def compute_metrics(eval_pred):
     return {"accuracy": accuracy}
 
 # Initialize Trainer
-#trainer = Trainer(
-#    model= model,
-#    args = training_args,
-#    train_dataset = train_dataset,
-#    eval_dataset = val_dataset,
-#    compute_metrics =compute_metrics
-#)
-
-
 trainer = Trainer(
     model=model,
     args=training_args,
-    train_dataset=IntentDataset(train_data["encodings"], train_data["labels"]),
-    eval_dataset= IntentDataset(val_data["encodings"], val_data["labels"]),
+    train_dataset=train_dataset,
+    eval_dataset=val_dataset,
     compute_metrics=compute_metrics,
 )
+
+
+#trainer = Trainer(
+#    model=model,
+#    args=training_args,
+#   train_dataset=IntentDataset(train_data["encodings"], train_data["labels"]),
+#   eval_dataset= IntentDataset(val_data["encodings"], val_data["labels"]),
+#    compute_metrics=compute_metrics,
+#)
 
 # Train & evaluate
 #trainer.train()
