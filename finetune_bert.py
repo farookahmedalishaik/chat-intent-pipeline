@@ -1,5 +1,6 @@
 # finetune_bert.py
 import torch
+import random
 from torch.utils.data import Dataset
 from transformers import BertForSequenceClassification, Trainer, TrainingArguments, BertTokenizer
 from transformers import IntervalStrategy 
