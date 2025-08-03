@@ -19,6 +19,9 @@ CONFIDENCE_THRESHOLD = 0.75
 
 DB_PATH = "runtime_logs.db"
 
+LOW_CONF_TABLE = "low_conf"
+LOGS_TABLE     = "logs"
+
 # User guidance text for available intents
 INTENT_GUIDANCE_TEXT = """
 This tool classifies messages into the following categories:
@@ -85,6 +88,43 @@ available_intents = label_mapping["label"].tolist()
 test_metrics, confusion_matrix = load_evaluation_data()
 
 
+
+# --- Helpers for DB ---
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    # logs: ts, predicted intent, actual intent (NULLable), correct (0/1/NULL), confidence
+    conn.execute(f"""
+        CREATE TABLE IF NOT EXISTS {LOGS_TABLE} (
+            ts TEXT,
+            pred TEXT,
+            actual TEXT,
+            correct INTEGER,
+            confidence REAL
+        )
+    """)
+    # low_conf: ts, text, confidence
+    conn.execute(f"""
+        CREATE TABLE IF NOT EXISTS {LOW_CONF_TABLE} (
+            ts TEXT,
+            text TEXT,
+            confidence REAL
+        )
+    """)
+    conn.commit()
+    return conn
+
+# --- Initialize DB ---
+conn = init_db()
+
+
+
+
+
+
+
+
+
+
 # Sidebar (Leftmost Column) ---
 st.sidebar.title("📚 Understanding the Categories")
 
@@ -105,126 +145,114 @@ input_message = st.text_area("Type your message here:", height = 150, label_visi
 # Live prediction Interface
 st.header("🔮 Intent Prediction Result")
 if input_message.strip():
-    # --- Tokenization ---
-    # Prepare the input message for the model.
-    model_inputs = tokenizer(
-        input_message, 
-        padding=True, 
-        truncation=True,
-        return_tensors="pt", 
-        max_length=128
+    # Tokenize & Predict
+    enc = tokenizer(
+        input_message, padding=True, truncation=True,
+        return_tensors="pt", max_length=128
+    )
+    with torch.no_grad():
+        logits = model(**enc).logits
+        probs  = torch.softmax(logits, dim=-1)
+    max_prob = float(probs.max())
+    pred_idx = int(probs.argmax())
+    pred_intent = (
+        available_intents[pred_idx]
+        if max_prob >= CONFIDENCE_THRESHOLD else "other"
     )
 
-    # --- Get Prediction ---
-    # Use torch.no_grad() to save memory and speed up computation.
-    with torch.no_grad():
-        model_output = model(**model_inputs)
-        # Apply softmax to get probabilities for each intent.
-        probabilities = torch.softmax(model_output.logits, dim=-1)
-        
-        # Get the highest probability and its corresponding class index.
-        max_probability = probabilities.max().item()
-        predicted_class_idx = probabilities.argmax(dim=-1).item()
-
-    # --- Determine Predicted Intent ---
-    # Check if the confidence score is above the defined threshold.
-    if max_probability >= CONFIDENCE_THRESHOLD:
-        # If confident, use the predicted intent label.
-        predicted_intent = available_intents[predicted_class_idx]
-    else:
-        # If not confident, label the intent as "other".
-        predicted_intent = "other"
-
-    # --- Display Results ---
-    # Use a single markdown statement to display the intent.
+    # Display
     st.markdown(
-        f"**Predicted Intent:** <span style='color:green; font-size: 24px;'>{predicted_intent}</span>", 
+        f"**Predicted Intent:** "
+        f"<span style='color:green; font-size:24px;'>{pred_intent}</span>",
         unsafe_allow_html=True
     )
-    # Display the confidence score and the threshold.
-    st.info(f"Confidence Score: `{max_probability:.2f}` (Threshold: `{CONFIDENCE_THRESHOLD:.2f}`)")
+    st.info(f"Confidence: `{max_prob:.2f}` (Threshold `{CONFIDENCE_THRESHOLD}`)")
 
-    # --- Log Prediction to SQLite ---
-    # Connect to the database and create the table if it doesn't exist.
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("CREATE TABLE IF NOT EXISTS logs (ts TIMESTAMP, intent TEXT)")
-    # Insert the timestamp and predicted intent into the log table.
-    conn.execute(
-    "INSERT INTO logs VALUES (?, ?)",
-    (pd.Timestamp.now().isoformat(), predicted_intent)
-    )
-    # Commit the changes and close the connection.
+    # Log to DB
+    # actual & correct unknown here → set to NULL
+    conn.execute(f"""
+        INSERT INTO {LOGS_TABLE} (ts, pred, actual, correct, confidence)
+        VALUES (?, ?, NULL, NULL, ?)
+    """, (pd.Timestamp.now().isoformat(), pred_intent, max_prob))
+    # If low confidence, also log to low_conf
+    if max_prob < CONFIDENCE_THRESHOLD:
+        conn.execute(f"""
+            INSERT INTO {LOW_CONF_TABLE} (ts, text, confidence)
+            VALUES (?, ?, ?)
+        """, (pd.Timestamp.now().isoformat(), input_message, max_prob))
     conn.commit()
-    conn.close()
-
 else:
-    # This message is displayed when the input box is empty.
-    st.info("Enter a message above to see its predicted intent.")
+    st.info("Enter a message to see its predicted intent.")
 
 st.markdown("---")
 
+# --- Expander: Model Performance & Confusion ---
+with st.expander("📊 Model Performance Metrics"):
+    st.dataframe(test_metrics.set_index("metric"))
 
-# Expandable sections view for performance metrics and confusion matrix
-with st.expander("📊 View Model Performance Metrics"):
-    st.subheader("Model Performance on Test Data")
-    metrics_display = test_metrics.set_index("metric")
-    st.dataframe(metrics_display)
-
-with st.expander("📈 View Classification Confusion Matrix"):
-    st.subheader("Classification Confusion Matrix")
-    import plotly.express as px
-    heatmap_fig = px.imshow(
+with st.expander("📈 Classification Confusion Matrix"):
+    fig_cm = px.imshow(
         confusion_matrix,
-        labels = dict(x = "Predicted Intent", y = "Actual Intent", color = "Frequency"),
-        x = confusion_matrix.columns,
-        y = confusion_matrix.index,
-        text_auto = True
+        labels=dict(x="Predicted", y="Actual", color="Count"),
+        text_auto=True
     )
-    st.plotly_chart(heatmap_fig, use_container_width =True)
+    st.plotly_chart(fig_cm, use_container_width=True)
 
-
-
-# --- Trend Over Time ---
-with st.expander("📈 Intent Trend Over Time"):
-    conn = sqlite3.connect(DB_PATH)
-    df_logs = pd.read_sql(
-        "SELECT date(ts) AS day, intent, COUNT(*) AS cnt "
-        "FROM logs GROUP BY day, intent",
-        conn
-    )
-    conn.close()
-    if not df_logs.empty:
-        trend_fig = px.line(df_logs, x="day", y="cnt", color="intent")
-        st.plotly_chart(trend_fig, use_container_width=True)
+# --- Expander: Precision & Recall Over Time ---
+with st.expander("📈 Precision & Recall Over Time"):
+    df_logs = pd.read_sql(f"SELECT * FROM {LOGS_TABLE}", conn)
+    if df_logs["correct"].notna().any():
+        # Compute daily TP/FP/FN per intent
+        df_logs["day"] = pd.to_datetime(df_logs["ts"]).dt.date
+        records = []
+        intents = set(df_logs["pred"].dropna().unique()) | set(df_logs["actual"].dropna().unique())
+        for day in sorted(df_logs["day"].unique()):
+            day_df = df_logs[df_logs["day"] == day]
+            for intent in intents:
+                tp = len(day_df[(day_df.pred == intent) & (day_df.correct == 1)])
+                fp = len(day_df[(day_df.pred == intent) & (day_df.correct == 0)])
+                fn = len(day_df[(day_df.actual == intent) & (day_df.correct == 0)])
+                precision = tp / (tp + fp) if (tp + fp) else None
+                recall    = tp / (tp + fn) if (tp + fn) else None
+                records.append({"day": day, "intent": intent,
+                                "precision": precision, "recall": recall})
+        df_pr = pd.DataFrame(records)
+        if not df_pr.empty:
+            fig_pr = px.line(df_pr, x="day", y="precision", color="intent", title="Precision Over Time")
+            st.plotly_chart(fig_pr, use_container_width=True)
+            fig_rc = px.line(df_pr, x="day", y="recall", color="intent", title="Recall Over Time")
+            st.plotly_chart(fig_rc, use_container_width=True)
+        else:
+            st.write("Not enough labeled data to compute PR.")
     else:
-        st.write("No logs yet.")
+        st.write("No ground-truth labels logged yet to compute precision/recall.")
 
-# --- Drill-Down Misclassifications ---
-st.subheader("🔍 Drill-Down Misclassifications")
-# you’ll need y_true/test_texts in this file or cache them for Streamlit
-# for demo, we reload from artifacts
-from transformers import AutoTokenizer
+# --- Expander: Low-Confidence Examples ---
+with st.expander("⚠️ Low-Confidence Examples"):
+    df_low = pd.read_sql(f"SELECT * FROM {LOW_CONF_TABLE} ORDER BY confidence ASC LIMIT 10", conn)
+    if not df_low.empty:
+        st.table(df_low[["ts", "text", "confidence"]])
+    else:
+        st.write("No low-confidence messages recorded yet.")
+
+# --- Drill-Down Misclassifications (Test Set) ---
+st.subheader("🔍 Drill-Down Misclassifications (Test Data)")
+# Load test set from artifacts
 data = torch.load("artifacts/test_data.pt")
-test_texts = data.get("texts", None)
-y_true      = data["labels"].numpy()
+texts = data.get("texts", None)
+y_true = data["labels"].numpy()
 with torch.no_grad():
-    test_out = model(
+    out = model(
         input_ids=data["input_ids"],
         attention_mask=data["attention_mask"]
     ).logits
-y_pred = test_out.argmax(dim=-1).numpy()
-
-df_errors = pd.DataFrame({
-    "text": test_texts,
-    "true": y_true,
-    "pred": y_pred
-})
+y_pred = out.argmax(dim=-1).numpy()
+df_errors = pd.DataFrame({"text": texts, "true": y_true, "pred": y_pred})
 
 selected_true = st.selectbox("Actual Intent", options=confusion_matrix.index)
 selected_pred = st.selectbox("Predicted Intent", options=confusion_matrix.columns)
 df_drill = df_errors[
-    (df_errors.true == selected_true) &
-    (df_errors.pred == selected_pred)
+    (df_errors.true == selected_true) & (df_errors.pred == selected_pred)
 ]
 st.write(df_drill["text"].head(10))
 
