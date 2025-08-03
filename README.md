@@ -17,6 +17,8 @@ This repository contains an end‑to‑end pipeline for classifying user intents
 * **Libraries:** `transformers` (Hugging Face), `PyTorch`, `pandas`, `numpy`, `scikit-learn`, `sqlalchemy`, `pymysql`, `plotly`, `streamlit`, `huggingface_hub`
 
 
+👉 https://chat-intent-pipeline-qvnch3q6hnnrknrjdnurdk.streamlit.app/ **[View Live Streamlit App]**
+
 
 ## Table of Contents
 
@@ -44,7 +46,7 @@ This repository contains an end‑to‑end pipeline for classifying user intents
 
 ### What does the project do?
 
-This project implements a complete, end-to-end Machine Learning Operations (MLOps)/ AI Data Analyst pipeline for **Intent Classification**. It automatically processes raw text messages, fine-tunes a powerful **BERT (Bidirectional Encoder Representations from Transformers)** model to understand and categorize the underlying intent of these messages, and then deploys this model as an interactive web application for real-time predictions. The pipeline handles everything from data ingestion and cleaning, through secure storage in a **MySQL** database, to model training, evaluation, versioning on **Hugging Face Hub**, and public deployment on **Streamlit Cloud**.
+This project implements a complete, end-to-end Machine Learning Operations (MLOps)/ AI Data Analyst pipeline for **Intent Classification**. It automatically processes text messages, fine-tunes a powerful **BERT (Bidirectional Encoder Representations from Transformers)** model to understand and categorize the underlying intent of these messages, and then deploys this model as an interactive web application for real-time predictions. The pipeline handles everything from data ingestion and cleaning, through secure storage in a **MySQL** database, to model training, evaluation, versioning on **Hugging Face Hub**, and public deployment on **Streamlit Cloud**.
 
 ### What does the project showcase?
 
@@ -297,7 +299,7 @@ This cleaned data is then loaded into a **MySQL database** via `load_to_mysql.py
 * **Automated Retraining:** Set up automated triggers (e.g., GitHub Actions) to retrain the model periodically or when new data becomes available in the MySQL database.
 
 
-# 🙏 Credits & License
+# 🙏 Credits
 
 ## Credits & Acknowledgements
 
@@ -312,9 +314,3 @@ A special thanks to the following for providing essential resources:
 * Streamlit: For enabling quick and easy deployment of interactive web applications for machine learning models.
 
 * PyTorch: The underlying deep learning framework used for model training.
-
-
-
-## License
-This project is open-sourced under the **MIT License**. You are free to use, modify, and distribute this code, provided the original license and copyright notice are included.
-The dataset used in this project is subject to its own licensing terms on Kaggle. Please refer to the original Kaggle dataset page for specific details regarding its usage rights.

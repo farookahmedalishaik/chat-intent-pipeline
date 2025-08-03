@@ -13,3 +13,14 @@ __pycache__/
 .DS_Store
 
 .env
+
+
+# Runtime‐generated logs & data
+runtime_logs.db
+data/cleaned_all.csv
+
+# Error analysis outputs
+artifacts/low_f1_errors.csv
+
+# Local database
+*.db

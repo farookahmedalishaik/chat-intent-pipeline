@@ -11,3 +11,4 @@ pymysql
 huggingface_hub
 python-dotenv
 plotly-express
+flask
