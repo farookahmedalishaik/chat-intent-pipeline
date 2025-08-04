@@ -69,6 +69,8 @@ available_intents = label_mapping["label"].tolist()
 test_metrics, confusion_matrix, test_data = load_evaluation_data()
 
 
+
+
 # --- Helpers for DB ---
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -145,10 +147,10 @@ else:
 
 st.markdown("---")
 
-with st.expander("📊 Model Performance Metrics"):
+with st.expander("📊 Model Performance Metrics (test data)"):
     st.dataframe(test_metrics.set_index("metric"))
 
-with st.expander("📈 Classification Confusion Matrix"):
+with st.expander("📈 Classification Confusion Matrix (test data)"):
     fig_cm = px.imshow(
         confusion_matrix,
         labels=dict(x="Predicted", y="Actual", color="Count"),
@@ -156,7 +158,7 @@ with st.expander("📈 Classification Confusion Matrix"):
     )
     st.plotly_chart(fig_cm, use_container_width=True)
 
-with st.expander("📈 Precision & Recall Over Time"):
+with st.expander("📈 Precision & Recall Over Time (history of live predictions)"):
     df_logs = pd.read_sql(f"SELECT * FROM {LOGS_TABLE}", conn)
     if df_logs["correct"].notna().any():
         df_logs["day"] = pd.to_datetime(df_logs["ts"]).dt.date
@@ -183,12 +185,28 @@ with st.expander("📈 Precision & Recall Over Time"):
     else:
         st.write("No ground-truth labels logged yet to compute precision/recall.")
 
-with st.expander("⚠️ Low-Confidence Examples"):
+with st.expander("⚠️ Low-Confidence Examples (history of live predictions)"):
     df_low = pd.read_sql(f"SELECT * FROM {LOW_CONF_TABLE} ORDER BY confidence ASC LIMIT 10", conn)
     if not df_low.empty:
         st.table(df_low[["ts", "text", "confidence"]])
     else:
         st.write("No low-confidence messages recorded yet.")
+
+
+
+
+
+
+# --- NEW SECTION TO DISPLAY ANNOTATION GUIDELINES ---
+st.subheader("Project Documentation")
+with st.expander("📚 Annotation Guidelines"):
+    try:
+        with open("annotation_guidelines.md", "r", encoding="utf-8") as f:
+            guidelines = f.read()
+        st.markdown(guidelines)
+    except FileNotFoundError:
+        st.error("Annotation guidelines file not found. Please ensure 'annotation_guidelines.md' is in the same directory.")
+# --- END NEW SECTION ---
 
 # --- Drill-Down Misclassifications (Test Set) ---
 st.subheader("🔍 Drill-Down Misclassifications (Test Data)")
@@ -210,6 +228,15 @@ df_drill = df_errors[
     (df_errors.true == selected_true) & (df_errors.pred == selected_pred)
 ]
 st.write(df_drill["text"].head(10))
+
+
+
+
+
+
+
+
+
 
 # Footer
 st.write("---")
