@@ -7,6 +7,7 @@ import torch
 from transformers import BertTokenizer, BertForSequenceClassification
 from huggingface_hub import hf_hub_download
 import plotly.express as px
+from preprocess import clean_text
 
 # Page Configuration
 st.set_page_config(page_title="BERT Intent Dashboard")
@@ -113,10 +114,16 @@ input_message = st.text_area("Type your message here:", height=150, label_visibi
 # Live prediction Interface
 st.header("🔮 Intent Prediction Result")
 if input_message.strip():
-    enc = tokenizer(
-        input_message, padding=True, truncation=True,
-        return_tensors="pt", max_length=128
+    clean_msg = clean_text(input_message)
+    enc       = tokenizer(
+               clean_msg,
+               padding=True,
+               truncation=True,
+               return_tensors="pt",
+               max_length=128
     )
+    
+
     with torch.no_grad():
         logits = model(**enc).logits
         probs = torch.softmax(logits, dim=-1)
