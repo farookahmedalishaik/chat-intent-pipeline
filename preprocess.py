@@ -42,15 +42,32 @@ def init_models(use_optional_order_invoice_patterns: bool = True):
 
         # Optional: add a small EntityRuler to catch common order/invoice ID formats.These are spaCy patterns (optional).
         if use_optional_order_invoice_patterns:
-            ruler = EntityRuler(_nlp, overwrite_ents=False)
+            # 1. Add the component by its string name "entity_ruler".
+            # This returns the ruler instance so you can configure it.
+            ruler = _nlp.add_pipe("entity_ruler", before="ner")
+
+            # 2. Define and add your patterns to the ruler instance you just got.
+
+# In preprocess.py, inside the init_models function...
+
             patterns = [
-                # ORD-12345 or ORD 12345 or ORDER 12345
-                {"label": "ORDER_ID", "pattern": [{"LOWER": {"IN": ["ord", "ord-", "order", "orderid", "order-id", "ord#"]}}, {"IS_PUNCT": True, "OP": "?"}, {"IS_ALPHA": False, "IS_SPACE": False, "OP": "?"}]},
-                # INV-98765 or INV 98765 or INVOICE 98765
-                {"label": "INVOICE_NUMBER", "pattern": [{"LOWER": {"IN": ["inv", "inv-", "invoice", "invoice#"]}}, {"IS_PUNCT": True, "OP": "?"}, {"IS_ALPHA": False, "IS_SPACE": False, "OP": "?"}]},
-            ]
-            ruler.add_patterns(patterns)
-            _nlp.add_pipe(ruler, before="ner")
+                # --- ORDER ID PATTERNS ---
+                # Catches: ORD-123, order 123, purchase123, purchase 123
+                {"label": "ORDER_ID", "pattern": [{"LOWER": {"IN": ["ord", "ord-", "orderid", "order-id", "ord#"]}}, {"IS_PUNCT": True, "OP": "?"}, {"IS_DIGIT": True}]},
+                {"label": "ORDER_ID", "pattern": [{"LOWER": {"IN": ["order", "purchase"]}}, {"IS_SPACE": True, "OP": "?"}, {"IS_DIGIT": True}]},
+
+                # --- INVOICE NUMBER PATTERNS ---
+                # Catches: INV-123, invoice 123, bill #123, invoice #123
+
+                {"label": "INVOICE_NUMBER", "pattern": [{"LOWER": {"IN": ["inv", "inv-", "invoice#"]}}, {"IS_PUNCT": True, "OP": "?"}, {"IS_DIGIT": True}]},
+                {"label": "INVOICE_NUMBER", "pattern": [{"LOWER": {"IN": ["bill", "invoice"]}}, {"TEXT": "#", "OP": "?"}, {"IS_DIGIT": True}]},
+
+                # --- ACCOUNT TYPE PATTERNS ---
+                # Catches: pro account, standard account, etc.
+                {"label": "ACCOUNT_TYPE", "pattern": [{"LOWER": {"IN": ["pro", "standard", "freemium", "platinum", "gold"]}}, {"LOWER": "account"}]}
+               
+         ]
+        ruler.add_patterns(patterns)
 
     if _analyzer is None:
         # Presidio AnalyzerEngine (uses built-in recognizers + spaCy if available)
@@ -67,6 +84,8 @@ _ENTITY_TO_PLACEHOLDER = {
     "DATE": "[DATE]",
     "ORG": "[ORGANIZATION]",
     "PRODUCT": "[PRODUCT]",
+    "ACCOUNT_TYPE": "[ACCOUNT_TYPE]",
+
     # Presidio / other types (Presidio returns types like 'PHONE_NUMBER', 'EMAIL_ADDRESS', etc.)
     "PHONE_NUMBER": "[PHONE_NUMBER]",
     "EMAIL_ADDRESS": "[EMAIL_ADDRESS]",
@@ -76,6 +95,7 @@ _ENTITY_TO_PLACEHOLDER = {
     # Custom labels  added in the EntityRuler
     "ORDER_ID": "[ORDER_ID]",
     "INVOICE_NUMBER": "[INVOICE_NUMBER]",
+    
 }
 
 # ---------- Core function: normalize_placeholders ----------
