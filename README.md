@@ -5,16 +5,16 @@ This repository contains an end‑to‑end pipeline for classifying user intents
 ## 📊 Project Highlights
 
 - Fine-tuned BERT model on custom annotated chat intent data
-- Precision, Recall, and F1 Score for each intent class: `[]`
-- Interactive confusion matrix (via Plotly)
-- Live intent prediction for new messages
+- Precision, Recall, and F1 Score for each intent class
+- Interactive confusion matrix for error analysis
+- Live, real-time intent prediction through a deployed web application
 
 **Technical Stack:**
 
 * **Platforms:** GitHub, Hugging Face Hub, Streamlit Cloud
 * **Languages:** Python
 * **Databases:** MySQL
-* **Libraries:** `transformers` (Hugging Face), `PyTorch`, `pandas`, `numpy`, `scikit-learn`, `sqlalchemy`, `pymysql`, `plotly`, `streamlit`, `huggingface_hub`
+* **Libraries:** `transformers` (Hugging Face), `PyTorch`, `spaCy` `Presidio` `pandas`, `numpy`, `scikit-learn`, `sqlalchemy`, `pymysql`, `plotly`, `streamlit`, `huggingface_hub`
 
 
 👉 https://chat-intent-pipeline-qvnch3q6hnnrknrjdnurdk.streamlit.app/ **[View Live Streamlit App]**
@@ -23,22 +23,21 @@ This repository contains an end‑to‑end pipeline for classifying user intents
 ## Table of Contents
 
 * Project Overview
-* 🌟 Key Features
-* 📈 Pipeline Architecture
-* 🚀 Live Demo
-* 📊 Model Performance
-* ⚙️ Setup and Local Execution
-    * 1. Clone the Repository
-    * 2. Create and Activate Virtual Environment
-    * 3. Install Dependencies
-    * 4. MySQL Database Setup
-    * 5. Hugging Face Hub Authentication
-    * 6. Run the Pipeline (Sequentially)
-    * 7. Run Streamlit App Locally
-* ☁️ Deployment
-    * 8. Data Sources & Management
-* 🔮 Future Enhancements
-* 🙏 Credits & License
+* Key Features
+* Pipeline Architecture
+* Live Demo
+* Model Performance
+* Data Sources & Management
+* Setup and Local Execution
+    * 1. Prerequisites
+    * 2. Clone the Repository
+    * 3. Configure Environment
+    * 4. Install Dependencies
+    * 5. Run the Pipeline
+    * 6. Run Streamlit App Locally
+* Deployment
+* Future Enhancements
+* Credits & License
 
 
 
@@ -56,7 +55,7 @@ This project implements a complete, end-to-end Machine Learning Operations (MLOp
 
 * Showcases expertise in deep learning model fine-tuning (BERT), MLOps principles (end-to-end pipeline, model versioning, deployment), efficient resource management (artifacts, checkpoints), and integration of various ML tools (Hugging Face, Streamlit, MySQL).
 
-* Directly applies state-of-the-art NLP techniques for text classification using transformer models.
+* Directly applies state of the art NLP techniques for text classification using transformer models.
 
 
 ### Summary
@@ -109,20 +108,20 @@ This project isn't just about building a model; it's about building a robust, re
 The project follows a sequential data and model flow, ensuring modularity and reproducibility:
 
 ```mermaid
-    A[Raw Data] --> B(ingest_clean.py);
-    B --> C(load_to_mysql.py);
-    C --> D[MySQL Database];
-    D --> E(prepare_data.py);
-    E --> F[Artifacts Folder];
-    F --> G(finetune_bert.py);
-    G --> H[BERT Output Folder];
-    F & H --> I(export_bert_metrics.py);
-    I --> J(push_model.py);
-    J --> K[Hugging Face Hub];
-    K --> L(app.py);
-    L --> M[Streamlit Cloud Deployment];
-    M --> N[Live Web Application];
-    N --> O[User Interaction];
+    A[Raw Data] --> B(1. ingest_clean.py);
+    B --> C[Cleaned CSV];
+    C --> D(2. load_to_mysql.py);
+    D --> E[MySQL Database];
+    E --> F(3. prepare_data.py);
+    F --> G[Artifacts Folder (.pt, .csv, .npy)];
+    G --> H(4. finetune_bert.py);
+    H --> I[Trained Model];
+    G & I --> J(5. export_bert_metrics.py);
+    J --> K [Metrics & Predictions];
+    I & K --> L(6. push_model.py);
+    L --> M[Hugging Face Hub];
+    M --> N(7. app.py);
+    N --> O[Streamlit Cloud Deployment];
 ```
 
 
@@ -140,24 +139,24 @@ Experience the deployed application and test its intent classification capabilit
 ## Intent Classification Model Training
 The `finetune_bert.py` script orchestrates the training process, leveraging the Hugging Face Transformers library.
 
-* Training Data: Custom dataset (details on preprocessing and tokenization are handled separately)
-* Training Epochs: 3
+* Training Data: Preprocessed and tokenizded from the central MYSQL database
+* Training Epochs: 6 (configurable in config.py)
 * Batch Sizes: Train: 16, Evaluation: 32
 * Framework: PyTorch with Hugging Face Trainer API
 
-### Key Results (from Validation Set during training):
+### Results (from Validation Set during training):
 The model was evaluated on a held-out validation set after each epoch. The final performance metrics, based on the best model, are:
 
 * Validation Loss: Approximately 0.0078
 * Validation Accuracy: Approximately 99.88%
 
-These results demonstrate the model's high accuracy and effectiveness in identifying user intents. The fine-tuned model checkpoint is committed to this repository and is located in the `artifacts/bert_intent_model/` directory.
+Note: These values might vary with each training run.
 
 
 
 ## Test Set Metrics
 
-The fine-tuned BERT model's performance on the held-out test set is summarized below. A full interactive confusion matrix is available in the live Streamlit dashboard for deeper analysis.
+The fine-tuned BERT model's performance on the unseen test set is summarized below.A full interactive confusion matrix is available in the live Streamlit dashboard.
 
 * Accuracy = 0.925
 * Precision =0.920
@@ -165,71 +164,80 @@ The fine-tuned BERT model's performance on the held-out test set is summarized b
 * F1-Score = 0.925
 
 
+# 🗄️ Data Sources & Management
+The intent classification model was trained and evaluated using a publicly available dataset from Kaggle, which was then merged with custom-generated synthetic data. This synthetic data includes a mix of standard English, common typographical errors, and slang to enhance the model's robustness.
+
+## Primary Dataset:
+* Source: The core dataset for intent classification was acquired from **Kaggle**.
+* Description: This dataset comprises customer interaction messages, each annotated with a specific intent label. It serves as the foundation for training the BERT model to understand and categorize diverse user queries.
+* Kaggle Link: https://www.kaggle.com/code/mohamedchahed/customer-intent-classfication
+* Local Storage: The raw dataset is stored within this repository at `data/raw_customer_interactions.csv`.
+
+
+
+
+## Data Ingestion & Cleaning:
+The `ingest_clean.py` script loads raw data, performs masking and clenaing using preprocess.py and saves a cleaned version to (`data/cleaned_all.csv`).
+
+This cleaned data is then loaded into a **MySQL database** via `load_to_mysql.py` for structured storage and efficient retrieval. This database (`intent_db` with table `messages`) acts as the central data repository for the pipeline.
+
 
 
 # ⚙️ Setup and Local Execution
 
 To set up and run this project locally, follow these steps:
 
-## 1. Clone the Repository
+
+## 1. Prerequisites
+
+* Python 3.8+
+* Git
+* MYSQL server like MYSQL Workbench
+
+## 2. Clone the Repository
 
 * git clone https://github.com/farookahmedalishaik/chat-intent-pipeline.git
 * cd chat-intent-pipeline
 
-## 2. Create and Activate Virtual Environment
+## 3. Configure Environment
 
-It's highly recommended to use a virtual environment.
+Create .env file in project root to hold secret credentials. environment.
 
-* python -m venv venv
-* On Windows: .\venv\Scripts\activate
-* On macOS/Linux: source venv/bin/activate
 
-## 3. Install Dependencies
-* pip install -r requirements.txt
+## 4. Install Dependencies
 
-## 4. MySQL Database Setup
-* Ensure you have a MySQL server running like MySQL workbench installation.
+It is highly recommended to use a virtual environment.
 
-* Create a database named `intent_db` and a user `intent_user` with password (or update `conn_str` in `load_to_mysql.py` and `prepare_data.py` with your credentials).
+* python -m venv venv (# Create a virtual environment)
 
-* Create the messages table:
+* .\venv\Scripts\activate (Activate it on Windows:)
 
-    * CREATE TABLE messages (
-    * id INT AUTO_INCREMENT PRIMARY KEY,
-    * text TEXT NOT NULL,
-    * label VARCHAR(255) NOT NULL,
-    * original_label VARCHAR(255)
-    * );
+* pip install -r requirements.txt (# Install required packages)
+
+* python -m spacy download en_core_web_sm (# Download the spaCy model for preprocessing)
 
 
 
-## 5. Hugging Face Hub Authentication
-To push models and data to Hugging Face Hub, you need to authenticate locally.
+## 5. Run the Pipeline (Sequentially)
 
-* huggingface-cli login
+Make sure MYSQL server is running and have created a database like intent_db. The python scripts will create teh necessary tables automatically
 
-Follow the prompts to paste your own Hugging Face token (and make sure it should has write access for pushing).
-
-
-## 6. Run the Pipeline (Sequentially)
-Execute each Python script in the following order from the project root. This will ingest data, train the model, evaluate it, and push artifacts to Hugging Face Hub.
-
-### Ingest and Clean Data:
+### 1. Ingest ,clean and preproces raw data:
 * python ingest_clean.py
 
-### Load Data to MySQL:
+### 2. Load Data to MySQL database:
 * python load_to_mysql.py
 
-### Prepare Data for BERT (Creates/Clears `artifacts/` folder):
+### 3. Prepare and tokenzide data for BERT , saving to `artifacts/`:
 * python prepare_data.py
 
-### Fine-tune BERT Model (Creates `bert_output/` and updates `artifacts/bert_intent_model/`):
+### 4. Fine-tune BERT Model (Creates `bert_output/` and updates `artifacts/bert_intent_model/`):
 * python finetune_bert.py
 
-### Export Model Metrics (Updates `artifacts/`):
+### 5. Evaluate the model and exports metrics (Updates `artifacts/`):
 * python export_bert_metrics.py
 
-### Push Model & Artifacts to Hugging Face Hub:
+### 6. Push the final Model & Artifacts to Hugging Face Hub:
 * python push_model.py
 
 ## 7. Run Streamlit App Locally (for testing local deployment)
@@ -243,7 +251,12 @@ This will open the application in your web browser.
 # ☁️ Deployment
 The application is deployed on Streamlit Cloud, directly from this GitHub repository. **Continuous deployment** is enabled, meaning any push to the `main` branch will trigger an automatic redeployment.
 
-For reliable access to Hugging Face models during deployment, a **read-only Hugging Face API token** is securely configured as a Streamlit Secret named `HF_TOKEN`. This token is not exposed in the codebase.
+For the deployed app to function, the following are configures as Streamlit Secrets:
+
+* HF_TOKEN: A read only Hugging Face API token
+
+* MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DB: Credntials for the MYSQL database.
+
 
 
 
@@ -252,35 +265,11 @@ For reliable access to Hugging Face models during deployment, a **read-only Hugg
 * Link to your Hugging Face model page something as : https://huggingface.co/farookahmedalishaik/intent-bert
 
 
-# 8. Data Sources & Management
-The intent classification model was trained and evaluated using a publicly available dataset from Kaggle, which was then merged with custom-generated synthetic data. This synthetic data includes a mix of standard English, common typographical errors, and slang to enhance the model's robustness.
-
-## Primary Dataset:
-* Source: The core dataset for intent classification was acquired from **Kaggle**.
-* Description: This dataset comprises customer interaction messages, each annotated with a specific intent label. It serves as the foundation for training the BERT model to understand and categorize diverse user queries.
-* Kaggle Link: https://www.kaggle.com/code/mohamedchahed/customer-intent-classfication
-* Local Storage: The raw dataset is stored within this repository at `data/raw_customer_interactions.csv`.
 
 
-
-
-## Data Ingestion & Cleaning:
-The `ingest_clean.py` script is responsible for loading the raw data, performing initial cleaning operations (e.g., handling missing values, standardizing text), and generating a cleaned version (`data/cleaned_all.csv`).
-
-This cleaned data is then loaded into a **MySQL database** via `load_to_mysql.py` for structured storage and efficient retrieval. This database (`intent_db` with table `messages`) acts as the central data repository for the pipeline.
-
-
-
-
-## Data Usage & Compliance:
-* Licensing: Users should refer to the licensing terms specified on the original Kaggle dataset page for full details regarding usage rights. Most Kaggle datasets are under a permissive license (e.g., Creative Commons), allowing for non-commercial and often commercial use, but it's always best to verify directly from the source.
-
-* Privacy: As the dataset is publicly available on Kaggle, it is generally considered anonymized or pre-processed. However, when working with any real-world customer interaction data, always prioritize data privacy (e.g., PII removal, secure storage, access control) in production environments. This project focuses on demonstrating the technical pipeline.
 
 
 ## 🔮 Future Enhancements
-
-* **"Other" Intent Handling & Low Confidence Routing:** Implement a mechanism to classify user input as an "other" or "unclear" intent if it doesn't align with the model's trained intents. Additionally, if a prediction's confidence score falls below a predefined threshold, automatically route that message for human review or to the "other" intent for further investigation.
 
 * **Sentiment Analysis Integration:** Implement a separate module to detect the sentiment (positive, negative, neutral) of the classified text messages. This would provide deeper insights into the user's emotional state in addition to their intent.
 

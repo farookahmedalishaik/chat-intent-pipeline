@@ -1,14 +1,31 @@
-streamlit
-transformers
-transformers[torch]
-torch
-accelerate
-scikit-learn
+# Requirements for the project
+
+# For data processing & ML
 pandas
 numpy
+scikit-learn
+torch
+transformers
+transformers[torch]
+accelerate
+
+
+# For NLP & text processing
+spacy
+presidio-analyzer
+presidio-anonymizer
+
+
+# For database
 SQLAlchemy
 pymysql
+
+
+# For deployment & ui
 huggingface_hub
-python-dotenv
+streamlit
 plotly-express
-flask
+
+
+#Utilities
+python-dotenv

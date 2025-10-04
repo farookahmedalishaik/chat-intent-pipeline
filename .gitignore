@@ -1,26 +1,128 @@
-# Ignore model artifacts and outputs
-artifacts/
-bert_output/
+# Editor / IDE
+.vscode/
+.idea/
 
-# Ignore virtual environment
-venv/
 
-.git/
-
-# Ignore OS or editor files
+# Python caches / test artifacts
 __pycache__/
 *.pyc
-.DS_Store
+.pytest_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
 
+
+# Notebook caches
+.ipynb_checkpoints/
+
+
+# Build / packaging
+dist/
+build/
+*.egg-info/
+pip-wheel-metadata/
+
+
+# Virtual envs
+venv/
 .env
+.env.*        # .env.local, etc
+.venv/
+env/
+
+# -----------------------
+# Model & binary artifacts (do NOT commit)
+# -----------------------
+# model checkpoints and heavy binary weights
+*.pt
+*.bin
+*.ckpt
+*.pth
+*.model
+*.safetensors
+
+# PyTorch / numpy caches
+*.npy
+*.npz
 
 
-# Runtime‐generated logs & data
+# Hugging Face / transformers caches
+
+.cache/
+.huggingface/
+.cache/huggingface/
+.cache/huggingface_hub/
+huggingface_cache/
+transformers_cache/
+tokenizers-cache/   # sometimes tokenizers store cache
+
+
+# Logs & runtime state
+*.log
+logs/
 runtime_logs.db
-data/cleaned_all.csv
+*.sqlite
+*.sqlite3
+*.db
 
-# Error analysis outputs
+
+# Artifacts / training outputs
+artifacts/
+bert_output/
+bert_logs/
+
+
+# Analysis outputs (generated CSVs / reports)
+analysis/*.csv
+analysis/*.json
+
+# Also ignore low-F1 report artifacts (sometimes generated in artifacts/)
 artifacts/low_f1_errors.csv
 
-# Local database
-*.db
+
+# Database / local dumps
+data/cleaned_all.csv
+# If ever produce SQL dumps or DB exports, add patterns like:
+# *.sql
+backups/
+# db_dumps/
+
+
+# Env & secrets
+secrets/
+*.key
+*.pem
+
+
+
+# OS files & editor temp files
+.DS_Store
+Thumbs.db
+*~                 # backup files
+*.swp              # vim swap
+desktop.ini
+
+# -----------------------
+# Misc / misc caches
+# -----------------------
+# mac/fuse hidden directories, etc (optional)
+.AppleDouble
+.LSOverride
+
+
+# Archive / compressed files (large binaries)
+
+*.zip
+*.tar.gz
+*.tgz
+*.7z
+
+
+# Large dataset or intermediate files
+*.h5
+*.hdf5
+*.parquet
+*.feather
+
+
