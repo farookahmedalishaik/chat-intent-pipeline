@@ -39,8 +39,8 @@ def tensor_to_numpy(t):
 def load_artifact_from_hub(
     repo_id: str,
     filename: str,
-    local_fallback_path: Optional[str] = None, 
-    load_fn: Callable[[str], Any], 
+    load_fn: Callable[[str], Any],
+    local_fallback_path: Optional[str] = None,     
 ):
     """
     Tries to download and load an artifact from Hugging Face Hub. If it fails, falls back to local path.
