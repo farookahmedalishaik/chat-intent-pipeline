@@ -16,7 +16,7 @@ from spacy.pipeline import EntityRuler
 
 from presidio_analyzer import AnalyzerEngine
 
-# ---------- Minimal cleaning  ----------
+
 def clean_text(s: str) -> str:
     """small cleanup: remove URLs and excessive whitespace; keep ascii characters."""
     if s is None:
@@ -48,26 +48,38 @@ def init_models(use_optional_order_invoice_patterns: bool = True):
 
             # 2. Define and add your patterns to the ruler instance you just got.
 
-# In preprocess.py, inside the init_models function...
-
+            # The entire patterns list has been updated to improve accuracy and reduce false positives.
             patterns = [
-                # --- ORDER ID PATTERNS ---
-                # Catches: ORD-123, order 123, purchase123, purchase 123
-                {"label": "ORDER_ID", "pattern": [{"LOWER": {"IN": ["ord", "ord-", "orderid", "order-id", "ord#"]}}, {"IS_PUNCT": True, "OP": "?"}, {"IS_DIGIT": True}]},
-                {"label": "ORDER_ID", "pattern": [{"LOWER": {"IN": ["order", "purchase"]}}, {"IS_SPACE": True, "OP": "?"}, {"IS_DIGIT": True}]},
+                # --- ORDER ID PATTERNS  ---
+                # Catches: ORD-123, order 123, purchase123, etc.
+                {"label": "ORDER_ID", "pattern": [{"LOWER": {"IN": ["ord", "ord-", "orderid", "order-id", "ord#"]}}, {"IS_PUNCT": True, "OP": "?"}, {"SHAPE": "dddd"}]},
+                {"label": "ORDER_ID", "pattern": [{"LOWER": {"IN": ["order", "purchase"]}}, {"IS_SPACE": True, "OP": "?"}, {"SHAPE": "dddd"}]},
+                # Catches standalone numbers that are between 6 and 12 digits long
+                {"label": "ORDER_ID", "pattern": [{"SHAPE": "dddddd"}]},
+                {"label": "ORDER_ID", "pattern": [{"SHAPE": "dddddddd"}]},
+                {"label": "ORDER_ID", "pattern": [{"SHAPE": "dddddddddd"}]},
+                {"label": "ORDER_ID", "pattern": [{"SHAPE": "dddddddddddd"}]},
 
                 # --- INVOICE NUMBER PATTERNS ---
-                # Catches: INV-123, invoice 123, bill #123, invoice #123
-
-                {"label": "INVOICE_NUMBER", "pattern": [{"LOWER": {"IN": ["inv", "inv-", "invoice#"]}}, {"IS_PUNCT": True, "OP": "?"}, {"IS_DIGIT": True}]},
+                # Catches: INV-123, invoice 123, bill #123, etc.
+                {"label": "INVOICE_NUMBER", "pattern": [{"LOWER": {"IN": ["inv", "inv-", "invoice#"]}}, {"IS_PUNCT": True, "OP": "?"}, {"SHAPE": "dddd"}]},
                 {"label": "INVOICE_NUMBER", "pattern": [{"LOWER": {"IN": ["bill", "invoice"]}}, {"TEXT": "#", "OP": "?"}, {"IS_DIGIT": True}]},
 
                 # --- ACCOUNT TYPE PATTERNS ---
                 # Catches: pro account, standard account, etc.
-                {"label": "ACCOUNT_TYPE", "pattern": [{"LOWER": {"IN": ["pro", "standard", "freemium", "platinum", "gold"]}}, {"LOWER": "account"}]}
-               
-         ]
-        ruler.add_patterns(patterns)
+                {"label": "ACCOUNT_TYPE", "pattern": [{"LOWER": {"IN": ["pro", "standard", "freemium", "platinum", "gold"]}}, {"LOWER": "account"}]},
+                
+                # --- LOCATION FIX PATTERNS  ---
+                # Prevents common locations from being misidentified as PERSON_NAME
+                {"label": "GPE", "pattern": [{"LOWER": "kent"}]},
+                {"label": "GPE", "pattern": [{"LOWER": "streetsboro"}]},
+
+                # --- KEYWORD FIX PATTERNS  ---
+                # Prevents common words from being misidentified as ORGANIZATION
+                {"label": "STOP_ENTITY", "pattern": [{"LOWER": "eta"}]},
+                {"label": "STOP_ENTITY", "pattern": [{"LOWER": "modify"}]},
+            ]
+            ruler.add_patterns(patterns)
 
     if _analyzer is None:
         # Presidio AnalyzerEngine (uses built-in recognizers + spaCy if available)
@@ -75,6 +87,7 @@ def init_models(use_optional_order_invoice_patterns: bool = True):
     return _nlp, _analyzer
 
 # ---------- Mapping from spaCy/Presidio entity types to our placeholders ----------
+# Added US_DRIVER_LICENSE and our custom STOP_ENTITY ---
 _ENTITY_TO_PLACEHOLDER = {
     # spaCy types (common)
     "PERSON": "[PERSON_NAME]",
@@ -92,10 +105,14 @@ _ENTITY_TO_PLACEHOLDER = {
     "CREDIT_CARD": "[CREDIT_CARD]",
     "IBAN_CODE": "[IBAN]",
     "US_BANK_NUMBER": "[BANK_NUMBER]",
+    "US_DRIVER_LICENSE": "[US_DRIVER_LICENSE]", # ADDED
+    
     # Custom labels  added in the EntityRuler
     "ORDER_ID": "[ORDER_ID]",
     "INVOICE_NUMBER": "[INVOICE_NUMBER]",
-    
+
+    # Custom label to ignore certain words (ADDED)
+    "STOP_ENTITY": "[STOP_ENTITY]",
 }
 
 # ---------- Core function: normalize_placeholders ----------
@@ -140,8 +157,23 @@ def normalize_placeholders(text: str) -> Tuple[str, Dict[str, List[str]]]:
         cleaned = re.sub(r"\s+", " ", raw).strip().lower()
         return cleaned, {}
 
-    # 3) Merge spans: sort by start, skip overlaps (prefer earlier Presidio results with score or spaCy if needed)
-    spans_sorted = sorted(spans, key=lambda x: (x["start"], -(x["score"] or 0)))
+
+    # 3) Filter and merge spans
+    # First, remove any spans that we've marked as a STOP_ENTITY
+    # Also, filter out weak phone number or driver license matches from Presidio on short numbers
+    filtered_spans = []
+    for s in spans:
+        if s['ph'] == '[STOP_ENTITY]':
+            continue # Ignore this span completely
+        
+        # Rule: If Presidio identifies a short number (less than 7 digits) as a phone number or driver's license, it's likely wrong. Ignore it.
+        if s['ph'] in ('[PHONE_NUMBER]', '[US_DRIVER_LICENSE]') and len(s['value'].strip()) < 7:
+            continue
+            
+        filtered_spans.append(s)
+
+    # Now merge the remaining valid spans, handling overlaps
+    spans_sorted = sorted(filtered_spans, key=lambda x: (x["start"], -(x["score"] or 0)))
     merged = []
     last_end = -1
     for s in spans_sorted:
@@ -152,6 +184,7 @@ def normalize_placeholders(text: str) -> Tuple[str, Dict[str, List[str]]]:
         # If it does overlap, the one we already added (merged[-1]) has priority
         # because of the initial sort (by start position and then score).
         # So, we simply do nothing and discard the current overlapping span `s`.
+    # --- END OF MODIFICATIONS ---
 
     # 4) Build final text by replacing spans with placeholders (uppercase) and collect mappings
     mappings = defaultdict(list)
