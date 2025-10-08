@@ -143,7 +143,7 @@ def main():
     df = pd.read_csv(CLEANED_DATA_FILE, dtype=str).fillna("")
     if "text" not in df.columns or "label" not in df.columns:
         raise KeyError("CSV must have 'text' and 'label' columns.")
-    df[HASH_COLUMN] = compute_md5(df["text"])
+    df[HASH_COLUMN] = compute_md5(df["text_raw"]) #calculates the hash based on the ORIGINAL text, ensuring true uniqueness
     print(f"Loaded {len(df)} rows from '{CLEANED_DATA_FILE}'.")
 
     # Create engine using centralized helper from utils
