@@ -143,6 +143,22 @@ def main():
     df = pd.read_csv(CLEANED_DATA_FILE, dtype=str).fillna("")
     if "text" not in df.columns or "label" not in df.columns:
         raise KeyError("CSV must have 'text' and 'label' columns.")
+
+
+
+    # Pre flight check for duplicates in the source file
+    duplicates = df[df.duplicated(subset=['text_raw'], keep=False)]
+    if not duplicates.empty:
+        print("\n WARNING: Found duplicate raw text entries in the source file.")
+        print("The following entries appear more than once:")
+        # Show which text is duplicated and how many times
+        print(duplicates['text_raw'].value_counts())
+        print("These will be automatically removed, keeping only the first instance.")
+        
+        df.drop_duplicates(subset=['text_raw'], keep='first', inplace=True)
+        print(f"\nDuplicates have been removed. Proceeding with {len(df)} unique rows.")
+    
+
     df[HASH_COLUMN] = compute_md5(df["text_raw"]) #calculates the hash based on the ORIGINAL text, ensuring true uniqueness
     print(f"Loaded {len(df)} rows from '{CLEANED_DATA_FILE}'.")
 
