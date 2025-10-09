@@ -74,7 +74,7 @@ def main():
     df_cm.to_csv(VAL_CONFUSION_FILE, encoding="utf-8")
     print(f"-> Saved validation confusion matrix to: {VAL_CONFUSION_FILE}")
 
-    print("\n Process Complete! You can now run push_model.py.")
+    print("\n Process Complete! now run push_model.py.")
 
 if __name__ == "__main__":
     main()
