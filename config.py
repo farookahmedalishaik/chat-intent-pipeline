@@ -56,9 +56,13 @@ VAL_DATA_FILE = os.path.join(ARTIFACTS_DIR, "val_data.pt")
 TEST_DATA_FILE = os.path.join(ARTIFACTS_DIR, "test_data.pt")
 
 # Evaluation and analysis outputs
+VAL_METRICS_FILE = os.path.join(ARTIFACTS_DIR, "val_classification_report.csv")
+VAL_CONFUSION_FILE = os.path.join(ARTIFACTS_DIR, "val_confusion_matrix.csv")
 TEST_PREDS_FILE = os.path.join(ARTIFACTS_DIR, "test_preds.npy")
 TEST_METRICS_FILE = os.path.join(ARTIFACTS_DIR, "test_metrics_bert.csv")
 TEST_CONFUSION_FILE = os.path.join(ARTIFACTS_DIR, "test_confusion_bert.csv")
+
+
 LOW_F1_ERRORS_FILE = os.path.join(ARTIFACTS_DIR, "low_f1_errors.csv")
 ANALYSIS_MAX_CONFUSION_PAIRS_TO_PRINT = 50
 ANALYSIS_MISCLASSIFIED_SAMPLE_FILE = os.path.join(ANALYSIS_DIR, "test_misclassified_sample.csv")

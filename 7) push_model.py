@@ -1,4 +1,4 @@
-# 10) push_model.py
+# 7) push_model.py
 
 import os
 from huggingface_hub import HfApi, login
@@ -9,9 +9,9 @@ from config import (
     HF_USER,
     HF_REPO_ID,
     MODEL_DIR_PATH,
-    TEST_METRICS_FILE,
-    TEST_CONFUSION_FILE,
-    CLASS_THRESHOLDS_FILE
+    CLASS_THRESHOLDS_FILE,
+    VAL_METRICS_FILE,
+    VAL_CONFUSION_FILE
 )
 
 def main():
@@ -55,9 +55,11 @@ def main():
             print(f"{path} not found (upload skip)")
 
     # Upload evaluation results that are specific to this model version.
-    upload_if_exists(TEST_METRICS_FILE, "test_metrics_bert.csv", "Add test metrics for BERT model")
-    upload_if_exists(TEST_CONFUSION_FILE, "test_confusion_bert.csv", "Add confusion matrix for BERT model")
+
     upload_if_exists(CLASS_THRESHOLDS_FILE, "class_thresholds.json", "Add per-class confidence thresholds")
+    upload_if_exists(VAL_METRICS_FILE, "val_classification_report.csv", "Add validation metrics")
+    upload_if_exists(VAL_CONFUSION_FILE, "val_confusion_matrix.csv", "Add validation confusion matrix")
+
 
     print(f"All available files pushed to {HF_REPO_ID}")
 
