@@ -188,48 +188,21 @@ def compute_metrics(eval_pred):
 # 8) Custom Trainer (overrides loss and train loader when needed)
 
 class CustomTrainer(Trainer):
-    def __init__(self, *args, custom_sampler=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.sampler = custom_sampler # store the sampler
-    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
-        labels = inputs.get("labels")
-        outputs = model(input_ids=inputs.get("input_ids"),
-                        attention_mask=inputs.get("attention_mask"),
-                        return_dict=True)
-        logits = outputs.logits  # shape (batch, num_labels)
+    # ... (other methods like __init__ and compute_loss) ...
 
-        if USE_FOCAL_LOSS:
-            weight = None
-            if SAMPLING_STRATEGY == "class_weight" and class_weights_t is not None:
-                weight = class_weights_t.to(model.device)
-            loss = focal_loss_fn(logits, labels, gamma=FOCAL_GAMMA, weight=weight)
-        else:
-            if SAMPLING_STRATEGY == "class_weight" and class_weights_t is not None:
-                loss_fct = torch.nn.CrossEntropyLoss(weight=class_weights_t.to(model.device))
-            else:
-                loss_fct = torch.nn.CrossEntropyLoss()
-            loss = loss_fct(logits, labels)
-
-        return (loss, outputs) if return_outputs else loss
-
-    def get_train_dataloader(self):
-        # If sampler is chosen, return a DataLoader that uses it.
+    def get_train_dataloader(self) -> DataLoader:
+        # If the sampler strategy is chosen, return a DataLoader that uses our custom sampler.
         if SAMPLING_STRATEGY == "sampler" and self.sampler is not None:
             return DataLoader(
                 self.train_dataset,
                 batch_size=self.args.train_batch_size,
                 sampler=self.sampler,
-                collate_fn=self.data_collator
+                collate_fn=self.data_collator,
             )
-        # Otherwise, fall back to Trainer's default behavior by building a simple DataLoader
-        return DataLoader(
-            self.train_dataset,
-            batch_size=self.args.train_batch_size,
-            # Shuffling should happen whenever a sampler isn't active.
-            shuffle=(self.sampler is None),
-            collate_fn=self.data_collator
-        )
-    
+        # Otherwise, fall back to the parent Trainer's default method.
+        return super().get_train_dataloader()
+
+
 # 9) TrainingArguments & Trainer
 
 training_args = TrainingArguments(
