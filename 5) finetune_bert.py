@@ -36,7 +36,8 @@ from config import (
     MODEL_OUTPUT_DIR,
     HF_DATASET_REPO_ID,
     HF_REPO_ID,
-    BASE_MODEL_ID
+    BASE_MODEL_ID,
+    GRADIENT_ACCUMULATION_STEPS,
 )
 
 # Local fallback file paths (used by load_artifact_from_hub as local fallback)
@@ -235,6 +236,7 @@ training_args = TrainingArguments(
     output_dir=MODEL_OUTPUT_DIR,
     num_train_epochs=EPOCHS,
     per_device_train_batch_size=BATCH_SIZE,
+    gradient_accumulation_steps=GRADIENT_ACCUMULATION_STEPS, 
     per_device_eval_batch_size=2 * BATCH_SIZE,
     learning_rate=LEARNING_RATE,
     warmup_ratio=WARMUP_RATIO,
