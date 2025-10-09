@@ -74,7 +74,7 @@ def load_artifact_from_hub(
             print(f" Local fallback '{local_fallback_path}' not found.")
             return None
         
-def load_model_from_hub(repo_id: str):
+def load_model_from_hub(repo_id: str, **kwargs):
     """
     Cloud-first loader for the entire model (tokenizer + classification head).
 
@@ -96,7 +96,7 @@ def load_model_from_hub(repo_id: str):
         print(f"Attempting to load model/tokenizer from Hugging Face repo: {repo_id}")
         # NOTE: newer versions of transformers accept token arg; use use_auth_token for compatibility
         tokenizer = BertTokenizer.from_pretrained(repo_id, use_auth_token=hf_token)
-        model = BertForSequenceClassification.from_pretrained(repo_id, use_auth_token=hf_token)
+        model = BertForSequenceClassification.from_pretrained(repo_id, use_auth_token=hf_token, **kwargs)
         print(f" Successfully loaded model and tokenizer from Hub: {repo_id}")
         return tokenizer, model
 

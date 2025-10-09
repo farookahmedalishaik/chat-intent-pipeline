@@ -141,11 +141,17 @@ if SAMPLING_STRATEGY == "sampler":
 #MODEL_REPO_ID = os.getenv("HF_REPO_ID", HF_REPO_ID) # use env var if set, otherwise use config value
 #tokenizer, model = load_model_from_hub(MODEL_REPO_ID)
 
-# The model we start fine-tuning from is the base model
-tokenizer, model = load_model_from_hub(BASE_MODEL_ID)
+
+# The model start fine-tuning from is the base model
+print(f"Loading tokenizer and model from {BASE_MODEL_ID}..")
+print(f"Configuring model for {num_labels} labels.")
+
+tokenizer, model = load_model_from_hub(BASE_MODEL_ID, num_labels=num_labels)
 
 if tokenizer is None or model is None:
-    raise RuntimeError(" Model/tokenizer could not be loaded from model repo. See messages above.")
+    raise RuntimeError(" Model/tokenizer could not be loaded. See messages above.")
+
+print("Successfully loaded and configured model and tokenizer.")
 
 
 # 6) Focal loss (simple and clear)
