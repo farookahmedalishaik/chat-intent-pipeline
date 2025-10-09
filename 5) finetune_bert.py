@@ -138,7 +138,7 @@ if SAMPLING_STRATEGY == "sampler":
 
 # tries to load the model/tokenizer from a dedicated model repo by using utils.load_model_from_hub if cloud load failes then stop withclear message.
 MODEL_REPO_ID = os.getenv("HF_REPO_ID", HF_REPO_ID) # use env var if set, otherwise use config value
-tokenizer, model = load_model_from_hub(MODEL_REPO_ID, os.path.join(ARTIFACTS_DIR, "bert_intent_model"))
+tokenizer, model = load_model_from_hub(MODEL_REPO_ID)
 
 if tokenizer is None or model is None:
     raise RuntimeError(" Model/tokenizer could not be loaded from model repo. See messages above.")
@@ -157,7 +157,7 @@ def focal_loss_fn(logits, targets, gamma=2.0, weight=None):
 
     #targets_one_hot = F.one_hot(targets, num_classes=logits.size(-1)).float()
    # p_t = (probs * targets_one_hot).sum(dim=-1)  # prob for true class
-   
+
     p_t = probs.gather(1, targets.unsqueeze(-1)).squeeze() # prob for true class
     ce = F.cross_entropy(logits, targets, weight=weight, reduction="none")
     loss = ((1.0 - p_t) ** gamma) * ce
