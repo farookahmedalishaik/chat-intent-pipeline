@@ -35,7 +35,8 @@ from config import (
     LOGS_DIR,
     MODEL_OUTPUT_DIR,
     HF_DATASET_REPO_ID,
-    HF_REPO_ID
+    HF_REPO_ID,
+    BASE_MODEL_ID
 )
 
 # Local fallback file paths (used by load_artifact_from_hub as local fallback)
@@ -137,8 +138,11 @@ if SAMPLING_STRATEGY == "sampler":
 # 5) Load model and tokenizer (use load_model_from_hub)
 
 # tries to load the model/tokenizer from a dedicated model repo by using utils.load_model_from_hub if cloud load failes then stop withclear message.
-MODEL_REPO_ID = os.getenv("HF_REPO_ID", HF_REPO_ID) # use env var if set, otherwise use config value
-tokenizer, model = load_model_from_hub(MODEL_REPO_ID)
+#MODEL_REPO_ID = os.getenv("HF_REPO_ID", HF_REPO_ID) # use env var if set, otherwise use config value
+#tokenizer, model = load_model_from_hub(MODEL_REPO_ID)
+
+# The model we start fine-tuning from is the base model
+tokenizer, model = load_model_from_hub(BASE_MODEL_ID)
 
 if tokenizer is None or model is None:
     raise RuntimeError(" Model/tokenizer could not be loaded from model repo. See messages above.")

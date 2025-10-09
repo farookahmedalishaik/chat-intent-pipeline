@@ -99,9 +99,7 @@ def init_db_tables(engine):
 @st.cache_resource
 def load_model_and_tokenizer():
     """Loads model and tokenizer using the utility function."""
-    _tokenizer, _model = load_model_from_hub(
-        repo_id=HF_REPO_ID, local_fallback_path=MODEL_DIR_PATH
-    )
+    _tokenizer, _model = load_model_from_hub(repo_id=HF_REPO_ID)
     if _model is None:
         st.error("FATAL: Model could not be loaded. The application cannot start.")
         st.stop()

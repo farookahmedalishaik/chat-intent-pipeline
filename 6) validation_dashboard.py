@@ -45,10 +45,7 @@ def load_validation_artifacts():
 @st.cache_resource
 def load_trained_model():
     """Loads the fine-tuned model using the centralized helper."""
-    _tokenizer, model = load_model_from_hub(
-        repo_id=HF_REPO_ID,
-        local_fallback_path=MODEL_DIR_PATH
-    )
+    _tokenizer, model = load_model_from_hub(repo_id=HF_REPO_ID)
     return model
 
 val_data, label_df = load_validation_artifacts()

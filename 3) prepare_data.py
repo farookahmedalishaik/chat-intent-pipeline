@@ -33,7 +33,8 @@ from config import (
     MYSQL_PASSWORD,
     MYSQL_HOST,
     MYSQL_PORT,
-    MYSQL_DB
+    MYSQL_DB,
+    BASE_MODEL_ID
 )
 
 # --- Helper function to load data ---
@@ -147,7 +148,7 @@ print(f" Class weights calculated and saved to: '{class_weights_path}'")
 
 # 6. Tokenize and Save Data as Tensors
 print("\n Step 6: Tokenizing and Saving Tensors")
-tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+tokenizer = BertTokenizer.from_pretrained(BASE_MODEL_ID)
 
 # Helper function to tokenize a list of texts
 def tokenize_texts(texts_list):

@@ -77,6 +77,10 @@ APP_SIDEBAR_GUIDANCE_TEXT = "This tool classifies messages into predefined inten
 HF_TOKEN = os.getenv("HF_TOKEN")
 HF_USER = os.getenv("HF_USER")
 
+
+# The base model to fine-tune
+BASE_MODEL_ID = "bert-base-uncased"
+
 # Define separate repo names for the model and the dataset artifacts
 HF_MODEL_REPO_NAME = "intent-bert"
 HF_DATASET_REPO_NAME = "intent-bert-data-artifacts"
