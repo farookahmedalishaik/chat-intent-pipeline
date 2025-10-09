@@ -2,7 +2,7 @@
 
 """
 Fine-tune BERT for intent classification.
-- Uses utils.load_model_from_hub(...) for all dataset downloads to load model/tokenizer (cloud-first, with local fallback).
+- Uses utils.load_model_from_hub(..) for all dataset downloads to load model/tokenizer (cloud-first, with local fallback).
 """
 
 import os
@@ -34,7 +34,8 @@ from config import (
     ARTIFACTS_DIR,
     LOGS_DIR,
     MODEL_OUTPUT_DIR,
-    HF_DATASET_REPO_ID
+    HF_DATASET_REPO_ID,
+    HF_REPO_ID
 )
 
 # Local fallback file paths (used by load_artifact_from_hub as local fallback)
@@ -56,12 +57,12 @@ def load_artifacts_from_hub(repo_id: str):
     print(f"Downloading data artifacts from Hugging Face Hub repo: {repo_id}")
 
     # train_data and val_data are expected to be PyTorch objects saved by prepare_data.py
-    train_data = load_artifact_from_hub(repo_id, "train_data.pt", TRAIN_LOCAL, torch.load)
-    val_data   = load_artifact_from_hub(repo_id, "val_data.pt", VAL_LOCAL, torch.load)
-    label_map  = load_artifact_from_hub(repo_id, "label_mapping.csv", LABEL_MAP_LOCAL, pd.read_csv)
+    train_data = load_artifact_from_hub(repo_id, "train_data.pt", torch.load, TRAIN_LOCAL)
+    val_data   = load_artifact_from_hub(repo_id, "val_data.pt", torch.load, VAL_LOCAL)
+    label_map  = load_artifact_from_hub(repo_id, "label_mapping.csv", pd.read_csv, LABEL_MAP_LOCAL)
 
     # class_weights is optional
-    class_weights = load_artifact_from_hub(repo_id, "class_weights.npy", CLASS_WEIGHTS_LOCAL, lambda p: np.load(p) if os.path.exists(p) else None)
+    class_weights = load_artifact_from_hub(repo_id, "class_weights.npy", lambda p: np.load(p) if os.path.exists(p) else None, CLASS_WEIGHTS_LOCAL)
     if class_weights is not None:
         class_weights_t = torch.tensor(class_weights, dtype=torch.float)
     else:
@@ -136,7 +137,7 @@ if SAMPLING_STRATEGY == "sampler":
 # 5) Load model and tokenizer (use load_model_from_hub)
 
 # tries to load the model/tokenizer from a dedicated model repo by using utils.load_model_from_hub if cloud load failes then stop withclear message.
-MODEL_REPO_ID = os.getenv("HF_REPO_ID", None)  # if set in env; otherwise depends on  config
+MODEL_REPO_ID = os.getenv("HF_REPO_ID", HF_REPO_ID) # use env var if set, otherwise use config value
 tokenizer, model = load_model_from_hub(MODEL_REPO_ID, os.path.join(ARTIFACTS_DIR, "bert_intent_model"))
 
 if tokenizer is None or model is None:
@@ -152,8 +153,12 @@ def focal_loss_fn(logits, targets, gamma=2.0, weight=None):
     where p_t is the predicted probability of the true class.
     """
     probs = F.softmax(logits, dim=-1)       # shape (batch, num_labels)
-    targets_one_hot = F.one_hot(targets, num_classes=logits.size(-1)).float()
-    p_t = (probs * targets_one_hot).sum(dim=-1)  # prob for true class
+
+
+    #targets_one_hot = F.one_hot(targets, num_classes=logits.size(-1)).float()
+   # p_t = (probs * targets_one_hot).sum(dim=-1)  # prob for true class
+   
+    p_t = probs.gather(1, targets.unsqueeze(-1)).squeeze() # prob for true class
     ce = F.cross_entropy(logits, targets, weight=weight, reduction="none")
     loss = ((1.0 - p_t) ** gamma) * ce
     return loss.mean()
@@ -172,6 +177,9 @@ def compute_metrics(eval_pred):
 # 8) Custom Trainer (overrides loss and train loader when needed)
 
 class CustomTrainer(Trainer):
+    def __init__(self, *args, custom_sampler=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.sampler = custom_sampler # store the sampler
     def compute_loss(self, model, inputs, return_outputs=False):
         labels = inputs.get("labels")
         outputs = model(input_ids=inputs.get("input_ids"),
@@ -236,6 +244,7 @@ trainer = CustomTrainer(
     eval_dataset=val_dataset,
     data_collator=default_data_collator,
     compute_metrics=compute_metrics,
+    custom_sampler=sampler
 )
 
 
@@ -272,13 +281,13 @@ with open(os.path.join(LOGS_DIR, "training_results.md"), "w") as f:
 
 # 13) Predict on validation set (get logits & probs) and compute thresholds
 
-print("Predicting on validation set to compute thresholds...")
+print("Predicting on validation set to compute thresholds..")
 pred_result = trainer.predict(val_dataset)
 val_logits = pred_result.predictions
 val_labels = pred_result.label_ids
 val_probs = torch.softmax(torch.from_numpy(val_logits).float(), dim=1).numpy()
 
-print("Computing per class thresholds (choose threshold that maximizes F1)....")
+print("Computing per class thresholds..")
 class_thresholds = {}
 for cls_idx, cls_name in enumerate(labels_list):
     y_true_bin = (val_labels == cls_idx).astype(int)
@@ -313,4 +322,4 @@ with open(th_path, "w") as f:
 print(f"Saved per class thresholds to {th_path}")
 print("Example thresholds (first 10):", dict(list(class_thresholds.items())[:10]))
 
-print("Done. Model and artifacts saved in artifacts/ folder.")
+print(" Process Complete. Model and artifacts saved in artifacts/ folder.")
