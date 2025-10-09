@@ -49,7 +49,7 @@ def load_data_from_source():
             MYSQL_HOST,
             MYSQL_PORT,
             MYSQL_DB,
-            sqlite_fallback_path=None,  # keep strict MySQL behavior for prepare_data.py
+            sqlite_fallback_path=None,  # strict MySQL behavior for prepare_data.py
             test_connection=True
         )
         df = pd.read_sql(text(f"SELECT text, label FROM {DB_MESSAGES_TABLE}"), con=engine)
@@ -57,7 +57,7 @@ def load_data_from_source():
         return df
     except Exception as e:
         print(f" CRITICAL: Could not load data from the database. Error: {e}")
-        # keep strict behavior: raise an error and stop (no local fallback for prepare_data.py)
+        # strict behavior: raise an error and stop (no local fallback for prepare_data.py)
         raise RuntimeError("Failed to connect to the database. The pipeline cannot continue without data.")
 
 
@@ -65,24 +65,24 @@ def load_data_from_source():
 
 # 1. Prepare Artifacts Directory
 # Delete the old artifacts folder to ensure a clean run, then create a new empty one.
-print("--- Step 1: Preparing artifacts directory ---")
+print(" Step 1: Preparing artifacts directory")
 if os.path.exists(ARTIFACTS_DIR):
     shutil.rmtree(ARTIFACTS_DIR)
 os.makedirs(ARTIFACTS_DIR, exist_ok=True)
 print(f" Clean artifacts directory created at: '{ARTIFACTS_DIR}'")
 
 # 2. Load and Clean the Data
-print("\n--- Step 2: Loading and Cleaning Data ---")
+print("\n Step 2: Loading and Cleaning Data")
 df = load_data_from_source()
 
 df = df[['text', 'label']].dropna() # Keep only necessary columns and drop rows with any missing values
 
 df['text'] = df['text'].astype(str).str.strip() # Clean up whitespace from text and labels
 df['label'] = df['label'].astype(str).str.strip()
-print(f" Data loaded and cleaned. Total rows: {len(df)}")
+print(f" Data loaded & cleaned. Total rows are: {len(df)}")
 
 # 3. Encode Labels
-print("\n--- Step 3: Encoding Labels ---")
+print("\n Step 3: Encoding Labels")
 
 label_encoder = LabelEncoder() # Convert text labels (e.g., "check_balance") into numbers (e.g., 0, 1, 2...)
 df['encoded_label'] = label_encoder.fit_transform(df['label'])
@@ -99,7 +99,7 @@ print(f" Labels encoded into {num_labels} unique classes.")
 print(f" Label mapping saved to: '{label_mapping_path}'")
 
 # 4. Split Data into Training, Validation, and Test Sets
-print("\n--- Step 4: Splitting Data ---")
+print("\n Step 4: Splitting Data")
 texts = df['text'].tolist()
 labels = df['encoded_label'].tolist()
 
@@ -134,7 +134,7 @@ print(f"   - Validation examples: {len(X_val)}")
 print(f"   - Test examples:       {len(X_test)}")
 
 # 5. Compute Class Weights
-print("\n--- Step 5: Computing Class Weights ---")
+print("\n Step 5: Computing Class Weights")
 # Calculate weights to give more importance to smaller classes during training
 class_weights = compute_class_weight(
     class_weight='balanced',
@@ -146,7 +146,7 @@ np.save(class_weights_path, class_weights)
 print(f" Class weights calculated and saved to: '{class_weights_path}'")
 
 # 6. Tokenize and Save Data as Tensors
-print("\n--- Step 6: Tokenizing and Saving Tensors ---")
+print("\n Step 6: Tokenizing and Saving Tensors")
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
 # Helper function to tokenize a list of texts
