@@ -30,13 +30,13 @@ def main():
         print("Hugging Face dataset repo ID is not configured. Set HF_DATASET_REPO_ID in .env")
         return
 
-    print(f"Logging in to Hugging Face Hub....")
+    print(f"Logging in to Hugging Face Hub..")
     login(token=HF_TOKEN)
 
     api = HfApi()
 
     # Create the dataset repository on the Hub (if it doesn't exist)
-    print(f"Ensuring dataset repository '{HF_DATASET_REPO_ID}' exists on the Hub...")
+    print(f"Ensuring dataset repository '{HF_DATASET_REPO_ID}' exists on the Hub..")
     api.create_repo(
         repo_id=HF_DATASET_REPO_ID,
         repo_type="dataset",
@@ -52,12 +52,12 @@ def main():
         TEST_DATA_FILE,
     ]
 
-    print("\nStarting upload of data artifacts....")
+    print("\nStarting upload of data artifacts")
     for file_path in files_to_upload:
         # Check if the local file exists before trying to upload
         if os.path.exists(file_path):
             file_name = os.path.basename(file_path)
-            print(f"  -> Uploading {file_name}....")
+            print(f"  -> Uploading {file_name}..")
             api.upload_file(
                 path_or_fileobj=file_path,
                 path_in_repo=file_name,
