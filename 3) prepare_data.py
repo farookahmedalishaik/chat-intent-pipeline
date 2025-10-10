@@ -1,5 +1,3 @@
-# 3) prepare_data.py
-
 """
 - Prepares cleaned data for model training. Reads cleaned human labeled data from MySQL database. 
 - Encodes text labels into numbers so the model can use. Splits the data into training, validation, and test sets.
@@ -8,6 +6,7 @@
 
 import os
 import shutil
+import re
 import pandas as pd
 import numpy as np
 import torch
@@ -106,7 +105,7 @@ print(f" Label mapping saved to: '{label_mapping_path}'")
 print("\n Step 4: Splitting Data (group-aware on transformed text)")
 
 # We will: (A) detect conflicts (same transformed text -> multiple labels),
-# (B) optionally deduplicate exact transformed duplicates (keep-first),
+# (B) deduplicate exact transformed duplicates (keep-first),
 # (C) use GroupShuffleSplit to ensure identical transformed texts do not cross splits.
 
 # Use 'text' as the canonical transformed text column (the model sees this).
@@ -131,8 +130,9 @@ if num_conflicts > 0:
         print(" -> Could not save conflicts CSV:", e)
     # NOTE: We do NOT automatically delete these; manual review is recommended.
 
-# 2) Optional: If you prefer to drop exact transformed duplicates (fast), uncomment this line:
-# df = df.drop_duplicates(subset=['text_trans'], keep='first').reset_index(drop=True)
+# 2) Drop exact transformed duplicates (fast)
+# This avoids identical transformed strings appearing in different splits.
+df = df.drop_duplicates(subset=['text_trans'], keep='first').reset_index(drop=True)
 
 # 3) Group-aware splitting so identical transformed strings stay in the same split
 groups = df['text_trans'].astype(str)
@@ -178,6 +178,31 @@ val_overlap = sum([1 for t in X_val if t in train_set])
 test_overlap = sum([1 for t in X_test if t in train_set or t in set(X_val)])
 print(f" Overlap train<->val (should be 0): {val_overlap}")
 print(f" Overlap train<->(val|test) (should be 0): {test_overlap}")
+
+# --- Leakage detection: check for placeholder tokens crossing splits and save suspicious tokens ---
+def extract_placeholder_tokens(texts):
+    toks = set()
+    ph_pattern = re.compile(r"\[([A-Z0-9_]+)(?:=[^\]]+)?\]", re.IGNORECASE)
+    for t in texts:
+        if not isinstance(t, str): continue
+        for m in ph_pattern.findall(t):
+            toks.add(m.lower())
+    return toks
+
+train_tokens = extract_placeholder_tokens(X_train)
+val_tokens = extract_placeholder_tokens(X_val)
+test_tokens = extract_placeholder_tokens(X_test)
+
+suspicious_tokens = {t for t in (train_tokens & (val_tokens | test_tokens)) if "hash" in t or "order" in t or "invoice" in t or "person" in t or "phone" in t or "email" in t}
+print(f"Leakage check — suspicious tokens in both train and val/test: {len(suspicious_tokens)}")
+if suspicious_tokens:
+    try:
+        with open(os.path.join(ARTIFACTS_DIR, "leakage_suspicious_tokens.txt"), "w", encoding="utf-8") as fh:
+            for t in sorted(suspicious_tokens):
+                fh.write(t + "\n")
+        print("Saved suspicious placeholder tokens to artifacts/leakage_suspicious_tokens.txt")
+    except Exception as e:
+        print("Could not save leakage list:", e)
 
 # ===== ADD THIS GUARD AFTER THE SPLIT BLOCK (right after overlap checks) =====
 # Ensure we have training examples — otherwise downstream code (class weights, training) will fail.

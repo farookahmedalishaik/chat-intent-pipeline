@@ -113,14 +113,27 @@ def load_all_artifacts():
     artifacts = {}
     
     # Load from Data Repo
-    artifacts["label_mapping"] = load_artifact_from_hub(HF_DATASET_REPO_ID, "label_mapping.csv", LABEL_MAPPING_FILE, pd.read_csv)
-    artifacts["test_data"] = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_data.pt", TEST_DATA_FILE, torch.load)
-    artifacts["test_metrics"] = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_metrics_bert.csv", TEST_METRICS_FILE, pd.read_csv)
-    artifacts["confusion_matrix"] = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_confusion_bert.csv", TEST_CONFUSION_FILE, lambda p: pd.read_csv(p, index_col=0))
-    artifacts["y_pred"] = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_preds.npy", TEST_PREDS_FILE, np.load)
+    # --- CORRECTED ARGUMENT ORDER IN ALL CALLS BELOW ---
+    artifacts["label_mapping"] = load_artifact_from_hub(
+        HF_DATASET_REPO_ID, "label_mapping.csv", pd.read_csv, LABEL_MAPPING_FILE
+    )
+    artifacts["test_data"] = load_artifact_from_hub(
+        HF_DATASET_REPO_ID, "test_data.pt", torch.load, TEST_DATA_FILE
+    )
+    artifacts["test_metrics"] = load_artifact_from_hub(
+        HF_DATASET_REPO_ID, "test_metrics_bert.csv", pd.read_csv, TEST_METRICS_FILE
+    )
+    artifacts["confusion_matrix"] = load_artifact_from_hub(
+        HF_DATASET_REPO_ID, "test_confusion_bert.csv", lambda p: pd.read_csv(p, index_col=0), TEST_CONFUSION_FILE
+    )
+    artifacts["y_pred"] = load_artifact_from_hub(
+        HF_DATASET_REPO_ID, "test_preds.npy", np.load, TEST_PREDS_FILE
+    )
     
     # Load from Model Repo
-    thresholds_json = load_artifact_from_hub(HF_REPO_ID, "class_thresholds.json", CLASS_THRESHOLDS_FILE, lambda p: json.load(open(p)))
+    thresholds_json = load_artifact_from_hub(
+        HF_REPO_ID, "class_thresholds.json", lambda p: json.load(open(p)), CLASS_THRESHOLDS_FILE
+    )
     artifacts["class_thresholds"] = thresholds_json if thresholds_json else {}
 
     # Validations

@@ -1,4 +1,3 @@
-# preprocess.py
 """
 Model-based preprocessing using spaCy + Microsoft Presidio.
 - Detects PERSON, GPE/LOC, MONEY, DATE, EMAIL, PHONE, ORG, etc.
@@ -103,9 +102,9 @@ _ENTITY_TO_PLACEHOLDER = {
 # -------------- Placeholder handling policy --------------
 # Whitelist placeholders we will keep raw/sanitized values for (non-sensitive):
 _WHITELIST_VALUE_PHS = {"ACCOUNT_TYPE", "DELIVERY_LOCATION"}  # keep readable value (safe)
-# Placeholders considered semi-sensitive but we keep a short hash to preserve uniqueness:
+# Placeholders considered semi-sensitive: we will NOT expose their unique values in the text (avoid leakage)
 _HASHED_VALUE_PHS = {"ORDER_ID", "INVOICE_NUMBER"}
-# Sensitive placeholders (hash them):
+# Sensitive placeholders (do not expose values in the text)
 _SENSITIVE_PH_STRINGS = {"PERSON_NAME", "EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT_CARD"}
 
 # Amount bins for REFUND_AMOUNT
@@ -214,7 +213,7 @@ def normalize_placeholders(text: str) -> Tuple[str, Dict[str, List[str]]]:
     Replace recognized spans in `text` with placeholders and return (final_text, mappings).
     - Uses spaCy NER + Presidio Analyzer.
     - Preserves some non-sensitive entity values (e.g., account type),
-      hashes sensitive values (person/email/phone) and short-hashes semi-sensitive IDs (order/invoice).
+      but DOES NOT expose unique per-entity values or short hashes in the text stream.
     - Normalizes dates into bins/month/year/question tokens using heuristics.
     """
     if text is None:
@@ -260,7 +259,7 @@ def normalize_placeholders(text: str) -> Tuple[str, Dict[str, List[str]]]:
             merged.append(s)
             last_end = s["end"]
 
-    # 4) Build final text by replacing spans with placeholders (with values or hashes) and collect mappings
+    # 4) Build final text by replacing spans with placeholders (with values or generic tokens) and collect mappings
     mappings = defaultdict(list)
     out_pieces = []
     last_idx = 0
@@ -292,17 +291,18 @@ def normalize_placeholders(text: str) -> Tuple[str, Dict[str, List[str]]]:
                 except Exception:
                     amount = None
 
+            # Decision logic: **do not** include unique per-entity values or short-hashes in the text stream.
+            # Keep safe readable small values for whitelisted placeholders only.
             if ph_name in _WHITELIST_VALUE_PHS:
                 # keep readable sanitized value for safe placeholders
                 chosen_piece = f"[{ph_name}={safe_val}]"
             elif ph_name in _HASHED_VALUE_PHS:
-                # use short hash for semi-sensitive ids (order/invoice)
-                h = hashlib.md5(value_raw.encode("utf-8")).hexdigest()[:8]
-                chosen_piece = f"[{ph_name}_HASH={h}]"
+                # Do NOT include the value or short-hash inside the token text to avoid per-entity leakage.
+                # Use a generic token that indicates the placeholder type only.
+                chosen_piece = f"[{ph_name}_HASH]"
             elif ph_name in _SENSITIVE_PH_STRINGS:
-                # hash sensitive PII
-                h = hashlib.md5(value_raw.encode("utf-8")).hexdigest()[:8]
-                chosen_piece = f"[{ph_name}_HASH={h}]"
+                # hide PII completely in the token stream (no id/hash/value in the text)
+                chosen_piece = f"[{ph_name}_HASH]"
             elif ph_name == "REFUND_AMOUNT" and amount is not None:
                 bin_label = _amount_to_bin_label(amount)
                 chosen_piece = f"[REFUND_AMT_BIN={bin_label}]"
