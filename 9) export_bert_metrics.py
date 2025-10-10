@@ -64,8 +64,8 @@ def main():
 
     # --- Cloud First Loading ---
     print("\n--- Step 1: Loading artifacts (cloud-first) ---")
-    test_data = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_data.pt", TEST_DATA_FILE, torch.load)
-    label_df = load_artifact_from_hub(HF_DATASET_REPO_ID, "label_mapping.csv", LABEL_MAPPING_FILE, pd.read_csv)
+    test_data = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_data.pt", torch.load, TEST_DATA_FILE)
+    label_df = load_artifact_from_hub(HF_DATASET_REPO_ID, "label_mapping.csv", pd.read_csv, LABEL_MAPPING_FILE)
     _tokenizer, model = load_model_from_hub(HF_REPO_ID)
 
     # --- Validation ---
