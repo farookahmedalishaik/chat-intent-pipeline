@@ -22,8 +22,8 @@ DB_STAGING_TABLE = "messages_staging_tmp"
 
 # --- 3. Model & Training Hyperparameters ---
 SEED = 42
-TEST_RATIO = 0.10
-VALID_RATIO = 0.10
+TEST_RATIO = 0.15
+VALID_RATIO = 0.15
 MAX_TEXT_LENGTH = 128
 
 # Training hyperparameters (recommended defaults)
