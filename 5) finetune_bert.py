@@ -228,11 +228,13 @@ trainer = CustomTrainer(
     train_dataset=train_dataset,
     eval_dataset=val_dataset,
     data_collator=default_data_collator,
-    compute_metrics=compute_metrics,
-    custom_sampler=sampler
+    compute_metrics=compute_metrics
 )
 
+if SAMPLING_STRATEGY == "sampler":
+    trainer.sampler = sampler
 
+    
 # 10) Helper to save artifacts cleanly
 
 def save_artifact_dir(dir_path):
