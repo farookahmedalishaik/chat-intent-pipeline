@@ -65,9 +65,9 @@ def save_misclassified_csvs(df, pairs, out_dir):
 # --- Main script flow ---
 def main():
     print("--- Step 1: Loading artifacts (cloud first) ---")
-    test_data = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_data.pt", TEST_DATA_FILE, torch.load)
-    y_pred = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_preds.npy", TEST_PREDS_FILE, np.load)
-    label_df = load_artifact_from_hub(HF_DATASET_REPO_ID, "label_mapping.csv", LABEL_MAPPING_FILE, pd.read_csv)
+    test_data = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_data.pt", torch.load, TEST_DATA_FILE)
+    y_pred = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_preds.npy", np.load, TEST_PREDS_FILE)
+    label_df = load_artifact_from_hub(HF_DATASET_REPO_ID, "label_mapping.csv", pd.read_csv, LABEL_MAPPING_FILE)
 
     if test_data is None or y_pred is None or label_df is None:
         print("\n Critical artifact missing. Could not load from Hub or local fallback. Exiting.")
