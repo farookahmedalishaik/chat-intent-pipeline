@@ -30,10 +30,10 @@ def get_texts_from_data(data_dict):
 # --- Main script flow ---
 def main():
     print("--- Step 1: Loading artifacts (cloud-first) ---")
-    test_metrics_df = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_metrics_bert.csv", TEST_METRICS_FILE, pd.read_csv)
-    label_df = load_artifact_from_hub(HF_DATASET_REPO_ID, "label_mapping.csv", LABEL_MAPPING_FILE, pd.read_csv)
-    test_data = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_data.pt", TEST_DATA_FILE, torch.load)
-    y_pred = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_preds.npy", TEST_PREDS_FILE, np.load) # Also load the predictions file
+    test_metrics_df = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_metrics_bert.csv", pd.read_csv, TEST_METRICS_FILE)
+    label_df = load_artifact_from_hub(HF_DATASET_REPO_ID, "label_mapping.csv", pd.read_csv, LABEL_MAPPING_FILE)
+    test_data = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_data.pt", torch.load, TEST_DATA_FILE)
+    y_pred = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_preds.npy", np.load, TEST_PREDS_FILE) # Also load the predictions file
 
 
     if test_metrics_df is None or label_df is None or test_data is None or y_pred is None:
