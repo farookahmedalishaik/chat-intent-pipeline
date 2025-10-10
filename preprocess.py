@@ -82,6 +82,7 @@ _ENTITY_TO_PLACEHOLDER = {
     "LOC": "[DELIVERY_LOCATION]",
     "MONEY": "[REFUND_AMOUNT]",
     "DATE": "[DATE]",
+    "DATE_TIME": "[DATE_TIME]",            
     "ORG": "[ORGANIZATION]",
     "PRODUCT": "[PRODUCT]",
     "ACCOUNT_TYPE": "[ACCOUNT_TYPE]",
@@ -110,12 +111,101 @@ _SENSITIVE_PH_STRINGS = {"PERSON_NAME", "EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT
 # Amount bins for REFUND_AMOUNT
 _AMOUNT_BINS = [(0, 10), (10, 50), (50, 100), (100, 500), (500, 1000), (1000, 1_000_000)]
 
+# Date recency bins (in months)
+_DATE_RECENCY_BINS_MONTHS = [(0, 1), (1, 6), (6, 12), (12, 1200)]  # 0-1, 1-6, 6-12, 12+
+_DATE_RECENCY_LABELS = ["0_30days", "31_180days", "181_365days", "365_plus"]
+
 
 def _amount_to_bin_label(num: float) -> str:
     for low, high in _AMOUNT_BINS:
         if low <= num < high:
             return f"{low}_{high}"
     return f"{_AMOUNT_BINS[-1][1]}_plus"
+
+
+def _date_rel_to_bin_label(months: int) -> str:
+    # months is positive integer representing how many months ago
+    for (low, high), lab in zip(_DATE_RECENCY_BINS_MONTHS, _DATE_RECENCY_LABELS):
+        if low <= months < high:
+            return lab
+    return _DATE_RECENCY_LABELS[-1]
+
+
+# helper to detect month names
+_MONTHS = {
+    "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
+    "july": 7, "august": 8, "september": 9, "october": 10, "november": 11, "december": 12
+}
+
+
+def _normalize_date_value(value_raw: str) -> str:
+    """
+    Heuristic normalization of DATE/DATE_TIME strings into useful, privacy-preserving tokens.
+    Returns a string like:
+      - "[DATE_REL_BIN=6_12]" for relative phrases (e.g., '9 months ago')
+      - "[DATE_MONTH=june]" for month tokens
+      - "[DATE_YEAR=2023]" for year-like tokens
+      - "[DATE_TIME_QUESTION]" for question-like phrases such as 'what hours'
+      - "[DATE]" fallback
+    """
+    if not value_raw or not value_raw.strip():
+        return "[DATE]"
+
+    v = value_raw.strip().lower()
+
+    # 1) question-like phrases (what time, what hours, when are)
+    if re.search(r'\b(what|when|which|how)\b', v) and re.search(r'\b(hour|hours|time|when)\b', v):
+        return "[DATE_TIME_QUESTION]"
+
+    # 2) relative months e.g., '9 months ago', 'ten months ago', 'last month', 'a month ago'
+    m = re.search(r'(\d+)\s+months?\s+ago', v)
+    if m:
+        months = int(m.group(1))
+        return f"[DATE_REL_BIN={_date_rel_to_bin_label(months)}]"
+    # spelled numbers like 'ten months ago' (basic)
+    spelled = re.search(r'\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b\s+months?\s+ago', v)
+    if spelled:
+        word_to_num = {"one":1,"two":2,"three":3,"four":4,"five":5,"six":6,"seven":7,"eight":8,"nine":9,"ten":10,"eleven":11,"twelve":12}
+        months = word_to_num.get(spelled.group(1), None)
+        if months is not None:
+            return f"[DATE_REL_BIN={_date_rel_to_bin_label(months)}]"
+
+    if re.search(r'\blast\s+month\b', v) or re.search(r'\bthis\s+month\b', v):
+        return f"[DATE_REL_BIN={_date_rel_to_bin_label(1)}]"
+
+    # 3) 'X months ago' with number words like '9 months ago' handled; also 'years ago'
+    m_years = re.search(r'(\d+)\s+years?\s+ago', v)
+    if m_years:
+        years = int(m_years.group(1))
+        months = years * 12
+        return f"[DATE_REL_BIN={_date_rel_to_bin_label(months)}]"
+
+    # 4) Month names like 'june'
+    for mn in _MONTHS.keys():
+        if re.search(r'\b' + re.escape(mn) + r'\b', v):
+            return f"[DATE_MONTH={mn}]"
+
+    # 5) Year-like tokens '2023' or '23' (simple)
+    y = re.search(r'\b(19|20)\d{2}\b', v)
+    if y:
+        return f"[DATE_YEAR={y.group(0)}]"
+
+    # 6) ISO-like or numeric dates with slashes or dashes e.g. 2023-06-15 or 06/15/2023
+    d = re.search(r'(\d{1,4}[/-]\d{1,2}[/-]\d{1,4})', v)
+    if d:
+        # sanitize and keep short representation
+        sanitized = re.sub(r'[^0-9/-]', '', d.group(1))
+        return f"[DATE_ISO={sanitized}]"
+
+    # 7) If the token is short and purely numeric (e.g., '9'), consider year or month depending on length
+    if re.fullmatch(r'\d{1,4}', v):
+        if len(v) == 4 and (1900 <= int(v) <= 2100):
+            return f"[DATE_YEAR={v}]"
+        # else fallback
+        return "[DATE]"
+
+    # 8) fallback
+    return "[DATE]"
 
 
 # ---------- Core function: normalize_placeholders ----------
@@ -125,6 +215,7 @@ def normalize_placeholders(text: str) -> Tuple[str, Dict[str, List[str]]]:
     - Uses spaCy NER + Presidio Analyzer.
     - Preserves some non-sensitive entity values (e.g., account type),
       hashes sensitive values (person/email/phone) and short-hashes semi-sensitive IDs (order/invoice).
+    - Normalizes dates into bins/month/year/question tokens using heuristics.
     """
     if text is None:
         return "", {}
@@ -215,6 +306,10 @@ def normalize_placeholders(text: str) -> Tuple[str, Dict[str, List[str]]]:
             elif ph_name == "REFUND_AMOUNT" and amount is not None:
                 bin_label = _amount_to_bin_label(amount)
                 chosen_piece = f"[REFUND_AMT_BIN={bin_label}]"
+            elif ph_name in {"DATE", "DATE_TIME"}:
+                # Use heuristic normalization for dates
+                date_token = _normalize_date_value(value_raw)
+                chosen_piece = date_token
             else:
                 # fallback: keep placeholder only
                 chosen_piece = ph_full
