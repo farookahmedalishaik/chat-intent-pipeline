@@ -95,6 +95,7 @@ _ENTITY_TO_PLACEHOLDER = {
 
     "ORDER_ID": "[ORDER_ID]",
     "INVOICE_NUMBER": "[INVOICE_NUMBER]",
+    "BILL_NUMBER": "[BILL_NUMBER]",
 
     "STOP_ENTITY": "[STOP_ENTITY]",
 }
@@ -103,7 +104,7 @@ _ENTITY_TO_PLACEHOLDER = {
 # Whitelist placeholders we will keep raw/sanitized values for (non-sensitive):
 _WHITELIST_VALUE_PHS = {"ACCOUNT_TYPE", "DELIVERY_LOCATION"}  # keep readable value (safe)
 # Placeholders considered semi-sensitive: we will NOT expose their unique values in the text (avoid leakage)
-_HASHED_VALUE_PHS = {"ORDER_ID", "INVOICE_NUMBER"}
+_HASHED_VALUE_PHS = {"ORDER_ID", "INVOICE_NUMBER", "BILL_NUMBER"}
 # Sensitive placeholders (do not expose values in the text)
 _SENSITIVE_PH_STRINGS = {"PERSON_NAME", "EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT_CARD"}
 
@@ -274,6 +275,13 @@ def normalize_placeholders(text: str) -> Tuple[str, Dict[str, List[str]]]:
         ph_name = ph_full.strip("[]")
         value_raw = (s.get("value") or "").strip()
 
+        # Quick contextual reclassification: if labeled INVOICE_NUMBER but surrounding contains 'bill',
+        # treat it as BILL_NUMBER so downstream labels/features align.
+        surrounding = raw[max(0, s["start"]-20): min(len(raw), s["end"]+20)].lower()
+        if ph_name == "INVOICE_NUMBER" and "bill" in surrounding:
+            ph_full = "[BILL_NUMBER]"
+            ph_name = "BILL_NUMBER"
+
         chosen_piece = ph_full  # default
 
         if not value_raw:
@@ -297,8 +305,7 @@ def normalize_placeholders(text: str) -> Tuple[str, Dict[str, List[str]]]:
                 # keep readable sanitized value for safe placeholders
                 chosen_piece = f"[{ph_name}={safe_val}]"
             elif ph_name in _HASHED_VALUE_PHS:
-                # Do NOT include the value or short-hash inside the token text to avoid per-entity leakage.
-                # Use a generic token that indicates the placeholder type only.
+                # Use a generic token that indicates the placeholder type only (no per-entity id/hash).
                 chosen_piece = f"[{ph_name}_HASH]"
             elif ph_name in _SENSITIVE_PH_STRINGS:
                 # hide PII completely in the token stream (no id/hash/value in the text)
