@@ -60,7 +60,7 @@ def load_data_from_source():
             sqlite_fallback_path=None,
             test_connection=True
         )
-        df_db = pd.read_sql(text(f"SELECT text, label FROM {DB_MESSAGES_TABLE}"), con=engine)
+        df_db = pd.read_sql(text(f"SELECT text, label, mappings, text_raw FROM {DB_MESSAGES_TABLE}"), con=engine)
         print(f" Successfully loaded {len(df_db)} rows from DB table '{DB_MESSAGES_TABLE}'.")
     except Exception as e:
         print(f" Warning: could not load from DB: {e}")
@@ -103,7 +103,7 @@ def sanitize_token_value(v: str) -> str:
 
 def extract_placeholders_and_build_text(original_text: str):
     """
-    Given the normalized text (which may include placeholders like [ACCOUNT_TYPE=pro_account] or [ORDER_ID_HASH]),
+    Given the normalized text (which may include placeholders like [ACCOUNT_TYPE=pro_account] or [ORDER_ID_PRESENCE]),
     this function:
       - finds placeholders and their values,
       - removes placeholders from the text,
@@ -135,17 +135,11 @@ def extract_placeholders_and_build_text(original_text: str):
 
     feature_tokens = []
 
-    # raw keyword checks (in case placeholder parsing missed something)
-    sraw = text.lower()
-    if "invoice" in sraw:
-        feature_tokens.append("[KW_INVOICE]")
-    if "bill" in sraw:
-        feature_tokens.append("[KW_BILL]")
-
     for name, val in names_vals:
+        # Normalize some known names (accept both ORDER_ID and ORDER_ID_PRESENCE etc)
         if "ORDER" in name:
             info["order_present"] = True
-        if "INVOICE" in name:
+        if "INVOICE" in name and "BILL" not in name:
             info["invoice_present"] = True
         if "BILL" in name:
             info["bill_present"] = True
@@ -153,22 +147,26 @@ def extract_placeholders_and_build_text(original_text: str):
             info["phone_present"] = True
         if "EMAIL" in name:
             info["email_present"] = True
-        if "PERSON" in name:
+        if ("PERSON" in name) or (name.startswith("PERSON") and "NAME" in name):
             info["person_present"] = True
 
+        # Special cases to keep useful, non-sensitive values
         if name == "ACCOUNT_TYPE":
+            # value might look like "standard_account" in your pipeline; sanitize
             if val:
                 info["account_type"] = sanitize_token_value(val)
-        elif name.startswith("REFUND_AMT") or name.startswith("REFUND_AMOUNT"):
+        elif name.startswith("REFUND_AMT_BIN") or name.startswith("REFUND_AMOUNT") or name.startswith("REFUND_AMT"):
+            # keep the bin token (clean)
             if val:
-                info["refund_amt_bin"] = val.replace(" ", "")
+                info["refund_amt_bin"] = re.sub(r"\s+", "", val)
         elif name.startswith("DATE_REL_BIN") or name.startswith("DATE_MONTH") or name.startswith("DATE_YEAR") or name.startswith("DATE_ISO"):
             if val:
                 info["date_bin"] = f"{name}={val}"
         else:
+            # collect other placeholders for debugging/audit
             info["other_placeholders"].append((name, val))
 
-    # Account type token (non-sensitive)
+    # Build tokens: account_type -> [ACCOUNT_TYPE_<VAL>] (keeps signal for checking vs savings)
     if info["account_type"]:
         feature_tokens.append(f"[ACCOUNT_TYPE_{info['account_type']}]")
 
@@ -182,12 +180,12 @@ def extract_placeholders_and_build_text(original_text: str):
         token = re.sub(r"[^0-9A-Z_a-z=]+", "_", info["date_bin"])
         feature_tokens.append(f"[{token}]")
 
-    # Presence flags (no identity values)
+    # Presence flags for sensitive placeholders (no unique ids)
     if info["order_present"]:
         feature_tokens.append("[ORDER_PRESENT]")
     if info["invoice_present"]:
         feature_tokens.append("[INVOICE_PRESENT]")
-    if info["bill_present"]:
+    if info.get("bill_present", False):
         feature_tokens.append("[BILL_PRESENT]")
     if info["phone_present"]:
         feature_tokens.append("[PHONE_PRESENT]")
@@ -196,15 +194,22 @@ def extract_placeholders_and_build_text(original_text: str):
     if info["person_present"]:
         feature_tokens.append("[PERSON_PRESENT]")
 
-    # Remove placeholders from the text entirely (strip any token that contains '_HASH' as well)
-    # Replace any [SOMETHING=val] or [SOMETHING_HASH] with a space, to avoid leaked identities.
+    # Remove placeholders from the text (prevent identity leakage)
     model_text = PH_PATTERN.sub(" ", text)
-    model_text = re.sub(r"_hash", "", model_text, flags=re.IGNORECASE)
+    # Clean spacing and lowercase (keep consistent with earlier pipeline)
     model_text = re.sub(r"\s+", " ", model_text).strip().lower()
 
-    # Append feature tokens at the end
+    # Append feature tokens to the end of the input text (keeps model simple, no architecture changes)
     if feature_tokens:
         model_text = f"{model_text} {' '.join(feature_tokens)}".strip()
+
+    # FINAL CLEANUP (important)
+    # 1) Remove any bracketed leftover tokens that contain digits or hex-like substrings (unique ids/hashes)
+    model_text = re.sub(r"\[[^\]]*(?:\d|[0-9a-f]{6,}|hash)[^\]]*\]", " [ID_PRESENT] ", model_text, flags=re.IGNORECASE)
+    # 2) Remove label-like raw tokens: e.g., tokens that follow 'request_' or 'queries_related_' patterns
+    model_text = re.sub(r"\b(request_[a-z0-9_/]+|queries_related_[a-z0-9_/]+)\b", " ", model_text, flags=re.IGNORECASE)
+    # 3) Normalize whitespace
+    model_text = re.sub(r"\s+", " ", model_text).strip()
 
     return model_text, info
 
@@ -290,7 +295,8 @@ print(f" Dropped {before - after} duplicate rows. Remaining: {after}")
 # ---------------- Build entity group_key for GroupShuffleSplit (to prevent entity leakage) ----------------
 print("\n Step 6: Building group keys for entity-aware splitting (ORDER/INVOICE/EMAIL/PERSON/PHONE)")
 def build_group_key(row):
-    # Try to parse 'mappings' from CSV or DB (may be JSON string or dict)
+    # Prefer using explicit mappings (if present in df) otherwise derive from ph_info
+    # If mappings is available as a dict or JSON string, try to extract the original sensitive value and hash it.
     mapped = None
     if 'mappings' in row and row['mappings'] not in (None, "", "nan"):
         m = row['mappings']
@@ -300,16 +306,36 @@ def build_group_key(row):
             elif isinstance(m, dict):
                 mapped = m
         except Exception:
+            # If parsing fails, ignore and fallback to ph_info
             mapped = None
 
+    # Try to extract a stable identifier from mappings (ORDER_ID, INVOICE_NUMBER, BILL_NUMBER, EMAIL, PHONE, PERSON_NAME)
     if isinstance(mapped, dict):
-        # Try common keys (flexible)
-        for k in ("ORDER_ID", "INVOICE_NUMBER", "BILL_NUMBER", "EMAIL_ADDRESS", "PHONE_NUMBER", "PERSON_NAME"):
-            if k in mapped and mapped[k]:
-                v = str(mapped[k][0]) if isinstance(mapped[k], (list, tuple)) else str(mapped[k])
+        for k in ("[ORDER_ID]", "ORDER_ID", "[INVOICE_NUMBER]", "INVOICE_NUMBER", "[BILL_NUMBER]", "BILL_NUMBER", "[EMAIL_ADDRESS]", "EMAIL_ADDRESS", "[PHONE_NUMBER]", "PHONE_NUMBER", "[PERSON_NAME]", "PERSON_NAME"):
+            vals = mapped.get(k)
+            if vals and len(vals) > 0:
+                v = str(vals[0])
+                # Use a hashed stable id (we do not expose raw values)
                 return hashlib.md5(v.encode("utf-8")).hexdigest()
 
-    # Last resort: hash the text_model so identical texts group together (still prevents leakage)
+    # Else, if ph_info has flags and maybe values (e.g., account_type not unique), build a composite keyed hash:
+    ph = row.get('ph_info', {})
+    if isinstance(ph, dict):
+        # prefer non-sensitive stable tokens: account_type + invoice/order presence
+        parts = []
+        if ph.get('account_type'):
+            parts.append(f"acct:{ph.get('account_type')}")
+        if ph.get('order_present'):
+            parts.append("order")
+        if ph.get('invoice_present'):
+            parts.append("invoice")
+        if ph.get('bill_present'):
+            parts.append("bill")
+        if parts:
+            # create deterministic hashed group key
+            return hashlib.md5(("|".join(parts)).encode("utf-8")).hexdigest()
+
+    # As last resort, use the model_text's hash (this groups exact duplicates)
     return hashlib.md5(row['text_model'].encode("utf-8")).hexdigest()
 
 # Apply group key
@@ -340,22 +366,18 @@ test_df = df.iloc[test_idx].reset_index(drop=True)
 val_relative = VALID_RATIO / (1.0 - TEST_RATIO) if (1.0 - TEST_RATIO) > 0 else 0.0
 if len(train_df) == 0 or val_relative <= 0:
     print("WARNING: Not enough data to create validation split after test split.")
-    X_train = train_df['text_model'].tolist()
-    y_train = train_df['encoded_label'].tolist()
-    X_val = []
-    y_val = []
+    final_train_df = train_df
+    val_df = train_df.iloc[0:0].reset_index(drop=True)
 else:
     gss_val = GroupShuffleSplit(n_splits=1, test_size=val_relative, random_state=SEED)
     train_idx2, val_idx = next(gss_val.split(train_df, groups=train_df['group_key']))
     final_train_df = train_df.iloc[train_idx2].reset_index(drop=True)
     val_df = train_df.iloc[val_idx].reset_index(drop=True)
 
-    X_train = final_train_df['text_model'].tolist()
-    y_train = final_train_df['encoded_label'].tolist()
-    X_val   = val_df['text_model'].tolist()
-    y_val   = val_df['encoded_label'].tolist()
-
-# Test split
+X_train = final_train_df['text_model'].tolist()
+y_train = final_train_df['encoded_label'].tolist()
+X_val   = val_df['text_model'].tolist()
+y_val   = val_df['encoded_label'].tolist()
 X_test = test_df['text_model'].tolist()
 y_test = test_df['encoded_label'].tolist()
 
@@ -402,9 +424,10 @@ if len(X_train) == 0:
 
 # ---------------- Save snapshots for auditing ----------------
 try:
-    pd.DataFrame({"text": X_train, "label": y_train}).to_csv(os.path.join(ARTIFACTS_DIR, "train_snapshot.csv"), index=False, encoding="utf-8")
-    pd.DataFrame({"text": X_val,   "label": y_val}).to_csv(os.path.join(ARTIFACTS_DIR, "val_snapshot.csv"), index=False, encoding="utf-8")
-    pd.DataFrame({"text": X_test,  "label": y_test}).to_csv(os.path.join(ARTIFACTS_DIR, "test_snapshot.csv"), index=False, encoding="utf-8")
+    # Save full dataframes (these include group_key and ph_info so you can audit splits easily)
+    final_train_df[['text_model','label','encoded_label','group_key','ph_info']].to_csv(os.path.join(ARTIFACTS_DIR, "train_snapshot.csv"), index=False, encoding="utf-8")
+    val_df[['text_model','label','encoded_label','group_key','ph_info']].to_csv(os.path.join(ARTIFACTS_DIR, "val_snapshot.csv"), index=False, encoding="utf-8")
+    test_df[['text_model','label','encoded_label','group_key','ph_info']].to_csv(os.path.join(ARTIFACTS_DIR, "test_snapshot.csv"), index=False, encoding="utf-8")
     print(f" Snapshots saved to {ARTIFACTS_DIR} (train/val/test snapshots).")
 except Exception as e:
     print(" Could not save snapshots for auditing:", e)
@@ -435,21 +458,22 @@ test_encodings = tokenize_texts(X_test)
 torch.save({
     "input_ids": train_encodings["input_ids"],
     "attention_mask": train_encodings["attention_mask"],
-    "labels": torch.tensor(y_train, dtype=torch.long)
+    "labels": torch.tensor(y_train, dtype=torch.long),
+    "texts": final_train_df['text_model'].tolist()
 }, os.path.join(ARTIFACTS_DIR, "train_data.pt"))
 
 torch.save({
     "input_ids": val_encodings["input_ids"],
     "attention_mask": val_encodings["attention_mask"],
     "labels": torch.tensor(y_val, dtype=torch.long),
-    "texts": X_val
+    "texts": val_df['text_model'].tolist()
 }, os.path.join(ARTIFACTS_DIR, "val_data.pt"))
 
 torch.save({
     "input_ids": test_encodings["input_ids"],
     "attention_mask": test_encodings["attention_mask"],
     "labels": torch.tensor(y_test, dtype=torch.long),
-    "texts": X_test
+    "texts": test_df['text_model'].tolist()
 }, os.path.join(ARTIFACTS_DIR, "test_data.pt"))
 
 print(" All datasets tokenized and saved as .pt files in the 'artifacts' directory.")

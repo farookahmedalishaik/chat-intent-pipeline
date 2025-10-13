@@ -56,7 +56,7 @@ def init_models(use_optional_order_invoice_patterns: bool = True):
                     {"IS_PUNCT": True, "OP": "?"},
                     {"TEXT": {"REGEX": "^.*[0-9].*$"}, "IS_PUNCT": False}
                 ]},
-                {"label": "ACCOUNT_TYPE", "pattern": [{"LOWER": {"IN": ["pro", "standard", "freemium", "platinum", "gold"]}}, {"LOWER": "account"}]},
+                {"label": "ACCOUNT_TYPE", "pattern": [{"LOWER": {"IN": ["pro", "standard", "freemium", "platinum", "gold", "savings", "checking"]}}, {"LOWER": "account"}]},
                 {"label": "GPE", "pattern": [{"LOWER": "kent"}]},
                 {"label": "GPE", "pattern": [{"LOWER": "streetsboro"}]},
                 {"label": "STOP_ENTITY", "pattern": [{"LOWER": "eta"}]},
@@ -81,7 +81,7 @@ _ENTITY_TO_PLACEHOLDER = {
     "LOC": "[DELIVERY_LOCATION]",
     "MONEY": "[REFUND_AMOUNT]",
     "DATE": "[DATE]",
-    "DATE_TIME": "[DATE_TIME]",            
+    "DATE_TIME": "[DATE_TIME]",
     "ORG": "[ORGANIZATION]",
     "PRODUCT": "[PRODUCT]",
     "ACCOUNT_TYPE": "[ACCOUNT_TYPE]",
@@ -275,13 +275,6 @@ def normalize_placeholders(text: str) -> Tuple[str, Dict[str, List[str]]]:
         ph_name = ph_full.strip("[]")
         value_raw = (s.get("value") or "").strip()
 
-        # Quick contextual reclassification: if labeled INVOICE_NUMBER but surrounding contains 'bill',
-        # treat it as BILL_NUMBER so downstream labels/features align.
-        surrounding = raw[max(0, s["start"]-20): min(len(raw), s["end"]+20)].lower()
-        if ph_name == "INVOICE_NUMBER" and "bill" in surrounding:
-            ph_full = "[BILL_NUMBER]"
-            ph_name = "BILL_NUMBER"
-
         chosen_piece = ph_full  # default
 
         if not value_raw:
@@ -305,11 +298,13 @@ def normalize_placeholders(text: str) -> Tuple[str, Dict[str, List[str]]]:
                 # keep readable sanitized value for safe placeholders
                 chosen_piece = f"[{ph_name}={safe_val}]"
             elif ph_name in _HASHED_VALUE_PHS:
-                # Use a generic token that indicates the placeholder type only (no per-entity id/hash).
-                chosen_piece = f"[{ph_name}_HASH]"
+                # Do NOT include the value or short-hash inside the token text to avoid per-entity leakage.
+                # Use a generic token that indicates the placeholder type only.
+                # Example: [ORDER_ID_HASH] -> becomes [ORDER_PRESENT] (presence indicator)
+                chosen_piece = f"[{ph_name}_PRESENCE]"
             elif ph_name in _SENSITIVE_PH_STRINGS:
                 # hide PII completely in the token stream (no id/hash/value in the text)
-                chosen_piece = f"[{ph_name}_HASH]"
+                chosen_piece = f"[{ph_name}_PRESENCE]"
             elif ph_name == "REFUND_AMOUNT" and amount is not None:
                 bin_label = _amount_to_bin_label(amount)
                 chosen_piece = f"[REFUND_AMT_BIN={bin_label}]"
@@ -331,6 +326,12 @@ def normalize_placeholders(text: str) -> Tuple[str, Dict[str, List[str]]]:
         out_pieces.append(post_text)
 
     final_text = " ".join(out_pieces)
+
+    # Final sanitization: remove any leftover tokens that look like unique IDs or contain digits/hash-like content
+    # Replace bracketed tokens that include digits or the substring 'hash' with presence-only tokens
+    final_text = re.sub(r"\[[^\]]*(?:\d|hash)[^\]]*\]", " [ID_PRESENT] ", final_text, flags=re.IGNORECASE)
+    # Normalize whitespace and lower-case
+    final_text = re.sub(r"\s+", " ", final_text).strip().lower()
 
     # Deduplicate mapping lists while preserving order
     final_mappings = {}
