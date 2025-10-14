@@ -51,11 +51,21 @@ def init_models(use_optional_order_invoice_patterns: bool = True):
                     {"IS_PUNCT": True, "OP": "?"},
                     {"TEXT": {"REGEX": "^.*[0-9].*$"}, "IS_PUNCT": False}
                 ]},
+
+                # Invoice-looking tokens (do NOT include 'bill' here)
                 {"label": "INVOICE_NUMBER", "pattern": [
-                    {"LOWER": {"IN": ["invoice", "bill", "inv"]}},
+                    {"LOWER": {"IN": ["invoice", "inv"]}},
                     {"IS_PUNCT": True, "OP": "?"},
                     {"TEXT": {"REGEX": "^.*[0-9].*$"}, "IS_PUNCT": False}
                 ]},
+                # Bill tokens handled separately
+                {"label": "BILL_NUMBER", "pattern": [
+                    {"LOWER": {"IN": ["bill", "billing", "billno", "bno"]},},
+                    {"IS_PUNCT": True, "OP": "?"},
+                    {"TEXT": {"REGEX": "^.*[0-9].*$"}, "IS_PUNCT": False}
+                ]},
+
+
                 {"label": "ACCOUNT_TYPE", "pattern": [{"LOWER": {"IN": ["pro", "standard", "freemium", "platinum", "gold", "savings", "checking"]}}, {"LOWER": "account"}]},
                 {"label": "GPE", "pattern": [{"LOWER": "kent"}]},
                 {"label": "GPE", "pattern": [{"LOWER": "streetsboro"}]},

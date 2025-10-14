@@ -51,7 +51,7 @@ CLASS_WEIGHTS_LOCAL = os.path.join(ARTIFACTS_DIR, "class_weights.npy")
 
 def load_artifacts_from_hub(repo_id: str):
     """
-    Downloads data artifacts using the centralized helper with consistent token handling & Returns (train_data, val_data, label_map, class_weights_tensor_or_None).
+    Downloads data artifacts from the hub (or local fallback). Returns (train_data, val_data, label_map, class_weights_tensor_or_None).
     """
     if not repo_id:
         raise ValueError("HF_DATASET_REPO_ID is not set in config. Cannot download data.")
@@ -138,12 +138,6 @@ if SAMPLING_STRATEGY == "sampler":
 
 # 5) Load model and tokenizer (use load_model_from_hub)
 
-# tries to load the model/tokenizer from a dedicated model repo by using utils.load_model_from_hub if cloud load failes then stop withclear message.
-#MODEL_REPO_ID = os.getenv("HF_REPO_ID", HF_REPO_ID) # use env var if set, otherwise use config value
-#tokenizer, model = load_model_from_hub(MODEL_REPO_ID)
-
-
-# The model start fine-tuning from is the base model
 print(f"Loading tokenizer and model from {BASE_MODEL_ID}..")
 print(f"Configuring model for {num_labels} labels.")
 
@@ -155,7 +149,7 @@ if tokenizer is None or model is None:
 print("Successfully loaded and configured model and tokenizer.")
 
 
-# 6) Focal loss (simple and clear)
+# 6) Focal loss (defined but not used unless USE_FOCAL_LOSS=True)
 
 def focal_loss_fn(logits, targets, gamma=2.0, weight=None):
     """
@@ -164,7 +158,6 @@ def focal_loss_fn(logits, targets, gamma=2.0, weight=None):
     where p_t is the predicted probability of the true class.
     """
     probs = F.softmax(logits, dim=-1)       # shape (batch, num_labels)
-
     p_t = probs.gather(1, targets.unsqueeze(-1)).squeeze() # prob for true class
     ce = F.cross_entropy(logits, targets, weight=weight, reduction="none")
     loss = ((1.0 - p_t) ** gamma) * ce
@@ -198,14 +191,14 @@ class CustomTrainer(Trainer):
         return super().get_train_dataloader()
 
     # --- NEW: compute_loss uses class weights or focal loss when configured ---
-    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+    def compute_loss(self, model, inputs, return_outputs=False):
         # This overrides the default Trainer loss to plug in class weights or focal loss.
         labels = inputs.pop("labels")
         device = next(model.parameters()).device
 
-        # Move inputs to device (Trainer normally handles this, but model(**inputs) will accept tensors on device)
-        # (inputs dict contains input_ids and attention_mask; Trainer will do device handling normally,
-        # so this is mostly safe — we rely on Trainer's data loading + device placement too.)
+        # Move labels to device (inputs are handled by Trainer)
+        labels = labels.to(device)
+
         outputs = model(**inputs)
         logits = outputs.logits
 
@@ -215,13 +208,13 @@ class CustomTrainer(Trainer):
             weights = weights.to(device)
 
         if USE_FOCAL_LOSS:
-            loss = focal_loss_fn(logits, labels.to(device), gamma=FOCAL_GAMMA, weight=weights)
+            loss = focal_loss_fn(logits, labels, gamma=FOCAL_GAMMA, weight=weights)
         else:
             if weights is not None:
                 loss_fct = torch.nn.CrossEntropyLoss(weight=weights)
             else:
                 loss_fct = torch.nn.CrossEntropyLoss()
-            loss = loss_fct(logits.view(-1, logits.size(-1)), labels.view(-1).to(device))
+            loss = loss_fct(logits.view(-1, logits.size(-1)), labels.view(-1))
 
         return (loss, outputs) if return_outputs else loss
 

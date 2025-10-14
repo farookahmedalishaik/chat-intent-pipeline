@@ -27,7 +27,8 @@ def load_validation_metrics():
     df_metrics = load_artifact_from_hub(
         repo_id=HF_REPO_ID, # Load from MODEL repo
         filename="val_classification_report.csv",
-        load_fn=pd.read_csv,
+        # CORRECTED: Removed duplicate load_fn argument
+        load_fn=lambda p: pd.read_csv(p, index_col=0),
         local_fallback_path=VAL_METRICS_FILE
     )
     
@@ -53,7 +54,7 @@ elif df_cm is None:
 else:
     # Display the validation metrics dataframe
     st.subheader("Validation Metrics")
-    st.dataframe(df_metrics.set_index("metric"))
+    st.dataframe(df_metrics)
 
     # Display the confusion matrix plot
     st.subheader("Validation Confusion Matrix")
@@ -62,7 +63,8 @@ else:
 
     # Show top low-F1 labels (validation)
     labels = df_cm.index.tolist()
-    label_metric_rows = df_metrics[df_metrics["metric"].isin(labels)].set_index("metric")
+    # CORRECTED: Filter by index instead of a non-existent "metric" column
+    label_metric_rows = df_metrics[df_metrics.index.isin(labels)]
     
     if not label_metric_rows.empty and "f1-score" in label_metric_rows.columns:
         bad = label_metric_rows[["f1-score"]].nsmallest(3, "f1-score").index.tolist()
