@@ -1,5 +1,3 @@
-# 2) load_to_mysql.py
-
 import os
 import hashlib
 import pandas as pd
@@ -81,6 +79,23 @@ def setup_database_table(conn):
         except Exception as e:
             print(f"Warning: failed to add column '{HASH_COLUMN}': {e}")
 
+    # Re-check presence of the column — fail loudly if it still doesn't exist (critical)
+    try:
+        col_check2 = conn.execute(
+            text("""
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = :db AND table_name = :table AND column_name = :col
+            """),
+            {"db": MYSQL_DB, "table": DB_MESSAGES_TABLE, "col": HASH_COLUMN}
+        ).fetchone()[0]
+    except Exception as e:
+        print("Warning: second information_schema check failed:", e)
+        col_check2 = 0
+
+    if int(col_check2) == 0:
+        # This is critical: downstream logic expects the hash column to exist for dedupe/upsert
+        raise RuntimeError(f"Critical: could not ensure required column '{HASH_COLUMN}' exists on table '{DB_MESSAGES_TABLE}'. Check DB permissions and schema.")
+
     # Populate missing hash values using SQL MD5 for performance (if any rows exist without it)
     try:
         conn.execute(text(f"UPDATE {DB_MESSAGES_TABLE} SET {HASH_COLUMN} = MD5(text) WHERE {HASH_COLUMN} IS NULL OR {HASH_COLUMN} = '';"))
@@ -144,7 +159,9 @@ def main():
     if "text" not in df.columns or "label" not in df.columns:
         raise KeyError("CSV must have 'text' and 'label' columns.")
 
-
+    # Ensure text_raw column exists (critical for stable MD5 dedupe)
+    if "text_raw" not in df.columns:
+        raise KeyError("Input cleaned CSV is missing required column 'text_raw' used to compute stable MD5 dedupe. Aborting.")
 
     # Pre flight check for duplicates in the source file
     duplicates = df[df.duplicated(subset=['text_raw'], keep=False)]
@@ -154,10 +171,10 @@ def main():
         # Show which text is duplicated and how many times
         print(duplicates['text_raw'].value_counts())
         print("These will be automatically removed, keeping only the first instance.")
-        
+
         df.drop_duplicates(subset=['text_raw'], keep='first', inplace=True)
         print(f"\nDuplicates have been removed. Proceeding with {len(df)} unique rows.")
-    
+
 
     df[HASH_COLUMN] = compute_md5(df["text_raw"]) #calculates the hash based on the ORIGINAL text, ensuring true uniqueness
     print(f"Loaded {len(df)} rows from '{CLEANED_DATA_FILE}'.")
@@ -234,7 +251,7 @@ def main():
             conn.execute(text(f"DROP TABLE IF EXISTS {DB_STAGING_TABLE};"))
             print("Temporary staging table removed.")
 
-      
+
         # Finally run dedupe to remove older duplicates (no preview/backups)
         run_global_deduplication(conn)
 

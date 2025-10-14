@@ -214,7 +214,7 @@ def normalize_placeholders(text: str) -> Tuple[str, Dict[str, List[str]]]:
     Replace recognized spans in `text` with placeholders and return (final_text, mappings).
     - Uses spaCy NER + Presidio Analyzer.
     - Preserves some non-sensitive entity values (e.g., account type),
-      but DOES NOT expose unique per-entity values or short hashes in the text stream.
+      but DOES NOT expose unique per-entity values or short-hashes in the text stream.
     - Normalizes dates into bins/month/year/question tokens using heuristics.
     """
     if text is None:
@@ -298,9 +298,7 @@ def normalize_placeholders(text: str) -> Tuple[str, Dict[str, List[str]]]:
                 # keep readable sanitized value for safe placeholders
                 chosen_piece = f"[{ph_name}={safe_val}]"
             elif ph_name in _HASHED_VALUE_PHS:
-                # Do NOT include the value or short-hash inside the token text to avoid per-entity leakage.
-                # Use a generic token that indicates the placeholder type only.
-                # Example: [ORDER_ID_HASH] -> becomes [ORDER_PRESENT] (presence indicator)
+                # Use a presence indicator token instead of exposing hashed values
                 chosen_piece = f"[{ph_name}_PRESENCE]"
             elif ph_name in _SENSITIVE_PH_STRINGS:
                 # hide PII completely in the token stream (no id/hash/value in the text)
@@ -327,9 +325,31 @@ def normalize_placeholders(text: str) -> Tuple[str, Dict[str, List[str]]]:
 
     final_text = " ".join(out_pieces)
 
-    # Final sanitization: remove any leftover tokens that look like unique IDs or contain digits/hash-like content
-    # Replace bracketed tokens that include digits or the substring 'hash' with presence-only tokens
-    final_text = re.sub(r"\[[^\]]*(?:\d|hash)[^\]]*\]", " [ID_PRESENT] ", final_text, flags=re.IGNORECASE)
+    # Final sanitization: only target truly ID-like bracketed tokens (not short suffixes like pro_account_2)
+    def _is_id_like_token(tok: str) -> bool:
+        t = tok.lower()
+        # explicit "hash" mention (e.g., order_hash)
+        if "hash" in t:
+            return True
+        # long hex (>=8 hex chars)
+        if re.search(r"\b[0-9a-f]{8,}\b", t):
+            return True
+        # long numeric runs (>=6 digits)
+        if re.search(r"\d{6,}", t):
+            return True
+        # patterns like inv-12345 or ord_12345 (letters + separator + >=4 digits)
+        if re.search(r"\b(?:inv|invoice|invno|ord|order|orderid|bill)[-_]?\d{4,}\b", t):
+            return True
+        return False
+
+    def _replace_id_like(match):
+        inner = match.group(0)  # e.g. "[ACCOUNT_TYPE=pro_account_2]"
+        content = inner.strip("[]")
+        return " [ID_PRESENT] " if _is_id_like_token(content) else inner
+
+    # Replace only ID-like bracketed tokens
+    final_text = re.sub(r"\[[^\]]+\]", lambda m: _replace_id_like(m), final_text, flags=re.IGNORECASE)
+
     # Normalize whitespace and lower-case
     final_text = re.sub(r"\s+", " ", final_text).strip().lower()
 

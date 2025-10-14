@@ -14,7 +14,7 @@ from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 import torch.nn.functional as F
 from transformers import BertForSequenceClassification, BertTokenizer, TrainingArguments, Trainer, default_data_collator
 import pandas as pd
-from sklearn.metrics import f1_score, accuracy_score, precision_recall_curve
+from sklearn.metrics import f1_score, accuracy_score, precision_recall_curve, classification_report, confusion_matrix
 
 # Import centralized helpers from utils (these handle HF_TOKEN internally)
 from utils import load_artifact_from_hub, load_model_from_hub
@@ -165,10 +165,6 @@ def focal_loss_fn(logits, targets, gamma=2.0, weight=None):
     """
     probs = F.softmax(logits, dim=-1)       # shape (batch, num_labels)
 
-
-    #targets_one_hot = F.one_hot(targets, num_classes=logits.size(-1)).float()
-   # p_t = (probs * targets_one_hot).sum(dim=-1)  # prob for true class
-
     p_t = probs.gather(1, targets.unsqueeze(-1)).squeeze() # prob for true class
     ce = F.cross_entropy(logits, targets, weight=weight, reduction="none")
     loss = ((1.0 - p_t) ** gamma) * ce
@@ -188,11 +184,10 @@ def compute_metrics(eval_pred):
 # 8) Custom Trainer (overrides loss and train loader when needed)
 
 class CustomTrainer(Trainer):
-    # ... (other methods like __init__ and compute_loss) ...
-
+    # keep get_train_dataloader (sampler) behavior
     def get_train_dataloader(self) -> DataLoader:
         # If the sampler strategy is chosen, return a DataLoader that uses our custom sampler.
-        if SAMPLING_STRATEGY == "sampler" and self.sampler is not None:
+        if SAMPLING_STRATEGY == "sampler" and getattr(self, "sampler", None) is not None:
             return DataLoader(
                 self.train_dataset,
                 batch_size=self.args.train_batch_size,
@@ -202,6 +197,34 @@ class CustomTrainer(Trainer):
         # Otherwise, fall back to the parent Trainer's default method.
         return super().get_train_dataloader()
 
+    # --- NEW: compute_loss uses class weights or focal loss when configured ---
+    def compute_loss(self, model, inputs, return_outputs=False):
+        # This overrides the default Trainer loss to plug in class weights or focal loss.
+        labels = inputs.pop("labels")
+        device = next(model.parameters()).device
+
+        # Move inputs to device (Trainer normally handles this, but model(**inputs) will accept tensors on device)
+        # (inputs dict contains input_ids and attention_mask; Trainer will do device handling normally,
+        # so this is mostly safe — we rely on Trainer's data loading + device placement too.)
+        outputs = model(**inputs)
+        logits = outputs.logits
+
+        # Trainer may have class_weights attribute attached (tensor on CPU) -> move to device
+        weights = getattr(self, "class_weights", None)
+        if weights is not None and isinstance(weights, torch.Tensor):
+            weights = weights.to(device)
+
+        if USE_FOCAL_LOSS:
+            loss = focal_loss_fn(logits, labels.to(device), gamma=FOCAL_GAMMA, weight=weights)
+        else:
+            if weights is not None:
+                loss_fct = torch.nn.CrossEntropyLoss(weight=weights)
+            else:
+                loss_fct = torch.nn.CrossEntropyLoss()
+            loss = loss_fct(logits.view(-1, logits.size(-1)), labels.view(-1).to(device))
+
+        return (loss, outputs) if return_outputs else loss
+
 
 # 9) TrainingArguments & Trainer
 
@@ -209,7 +232,7 @@ training_args = TrainingArguments(
     output_dir=MODEL_OUTPUT_DIR,
     num_train_epochs=EPOCHS,
     per_device_train_batch_size=BATCH_SIZE,
-    gradient_accumulation_steps=GRADIENT_ACCUMULATION_STEPS, 
+    gradient_accumulation_steps=GRADIENT_ACCUMULATION_STEPS,
     per_device_eval_batch_size=2 * BATCH_SIZE,
     learning_rate=LEARNING_RATE,
     warmup_ratio=WARMUP_RATIO,
@@ -231,10 +254,18 @@ trainer = CustomTrainer(
     compute_metrics=compute_metrics
 )
 
+# attach sampler if needed
 if SAMPLING_STRATEGY == "sampler":
     trainer.sampler = sampler
 
-    
+# --- NEW: attach class_weights tensor to trainer so compute_loss can use them ---
+if class_weights_t is not None:
+    if not isinstance(class_weights_t, torch.Tensor):
+        class_weights_t = torch.tensor(class_weights_t, dtype=torch.float)
+    trainer.class_weights = class_weights_t
+else:
+    trainer.class_weights = None
+
 # 10) Helper to save artifacts cleanly
 
 def save_artifact_dir(dir_path):
@@ -249,31 +280,41 @@ def save_artifact_model_and_tokenizer(base_dir):
 
 
 # 11) Train
-
 train_result = trainer.train()
 save_artifact_model_and_tokenizer(os.path.join(ARTIFACTS_DIR, "bert_intent_model"))
 print("Saved fine-tuned model to artifacts/bert_intent_model/")
 
 
-# 12) Evaluate & save metrics
-
-
-eval_metrics = trainer.evaluate()
-print("Eval metrics:", eval_metrics)
-with open(os.path.join(LOGS_DIR, "training_results.md"), "w") as f:
-    f.write("## Final Evaluation Metrics\n")
-    for k, v in eval_metrics.items():
-        f.write(f"- {k}: {v}\n")
-
-
-# 13) Predict on validation set (get logits & probs) and compute thresholds
-
-print("Predicting on validation set to compute thresholds..")
-pred_result = trainer.predict(val_dataset)
+# 12) Single validation pass (predict once and derive artifacts)
+print("Running single validation pass (predict) to produce evaluation artifacts and thresholds...")
+pred_result = trainer.predict(val_dataset)  # one inference pass
 val_logits = pred_result.predictions
 val_labels = pred_result.label_ids
 val_probs = torch.softmax(torch.from_numpy(val_logits).float(), dim=1).numpy()
+val_preds = np.argmax(val_logits, axis=-1)
 
+# Compute classification_report & confusion matrix and save them
+labels = labels_list
+report_dict = classification_report(val_labels, val_preds, target_names=labels, digits=4, output_dict=True)
+report_df = pd.DataFrame(report_dict).transpose()
+report_df.to_csv(os.path.join(ARTIFACTS_DIR, "val_classification_report.csv"), index=True)
+
+cm = confusion_matrix(val_labels, val_preds)
+pd.DataFrame(cm, index=labels, columns=labels).to_csv(os.path.join(ARTIFACTS_DIR, "val_confusion_matrix.csv"))
+
+# Save raw predictions + probs for later analysis
+out_df = pd.DataFrame({
+    "true_id": val_labels,
+    "pred_id": val_preds,
+    "true": [labels[i] for i in val_labels],
+    "pred": [labels[i] for i in val_preds],
+})
+if "texts" in val_data:
+    out_df["text"] = val_data["texts"]
+out_df["probs"] = list(val_probs.tolist())
+out_df.to_csv(os.path.join(ARTIFACTS_DIR, "val_predictions_with_probs.csv"), index=False)
+
+# Also compute per-class thresholds (reuse your existing method)
 print("Computing per class thresholds..")
 class_thresholds = {}
 for cls_idx, cls_name in enumerate(labels_list):
@@ -308,5 +349,14 @@ with open(th_path, "w") as f:
     json.dump(class_thresholds, f, indent=2)
 print(f"Saved per class thresholds to {th_path}")
 print("Example thresholds (first 10):", dict(list(class_thresholds.items())[:10]))
+
+# Save summary metrics to training log
+acc = accuracy_score(val_labels, val_preds)
+macro_f1 = f1_score(val_labels, val_preds, average="macro")
+with open(os.path.join(LOGS_DIR, "training_results.md"), "w") as f:
+    f.write("## Final Evaluation Metrics\n")
+    f.write(f"- accuracy: {acc}\n")
+    f.write(f"- macro_f1: {macro_f1}\n")
+print("Validation metrics saved and single predict pass completed.")
 
 print(" Process Complete. Model and artifacts saved in artifacts/ folder.")
