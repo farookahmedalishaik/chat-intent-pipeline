@@ -1,4 +1,4 @@
-# 12) app.py
+# 11) app.py
 
 import os
 import json
@@ -163,8 +163,84 @@ class_thresholds = artifacts["class_thresholds"]
 init_db_tables(engine)
 
 # Sidebar
+# In app.py, replace the old sidebar code with this entire block:
+
 st.sidebar.title("📚 Understanding the Categories")
-st.sidebar.markdown(APP_SIDEBAR_GUIDANCE_TEXT)
+st.sidebar.markdown("""
+This tool classifies messages into the following intents. Here are some examples:
+
+**account_management**
+* "I would like to open an account."
+* "Create an account."
+* "Modify information on my account."
+* "I don't know how to delete the account."
+
+**check_promotions**
+* "Where can I find a voucher for my family?"
+* "Do you have any rebate for orders over $50?"
+* "What's the discount on clothing?"
+* "I'd like to know the promo code for students."
+
+**complaint**
+* "Where can I make a consumer claim against your organization?"
+* "How do I lodge a consumer complaint?"
+* "I am unhappy with your service."
+* "I have to file a customer complaint."
+                    
+**contact_support**
+* "What hours can I call customer service?"
+* "How can I get in touch with customer support?"
+* "I have to speak with someone from customer support."
+
+**delivery_information**
+* "Help me check what delivery methods I can choose."
+* "How can I check what shipment methods are available?"
+* "Do you ship to Finland?"
+
+**inquire_business_hours**
+* "Can you share your office business hours this week?"
+* "What are your store opening hours today?"
+
+**manage_shipping_address**
+* "I have troubles editing my delivery address."
+* "Help me to change the delivery address."
+* "I need support modifying my delivery address."
+
+**newsletter_subscription**
+* "I need help canceling my subscription to the newsletter."
+* "Help me sign up for your company newsletter."
+
+**queries_related_to_order**
+* "I can't add some items to order 370795561790."
+* "How do I edit purchase order #419790?"
+* "Can you help me swap something in purchase order #2680226?"
+                  
+**queries_related_to_payment/fee**
+* "I want to see what payment options are accepted."
+* "I need help checking the early termination penalties."
+* "How can I see the cancellation fees?"
+
+**queries_related_to_refund**
+* "I need assistance to check in what cases I can request a refund."
+* "Can you help me get my money back?"
+* "In which cases can I ask for a reimbursement?"
+
+**request_bill**
+* "I want assistance downloading bill #37777."
+* "Where can I check my bill #00108?"
+* "I want to take a quick look at bill #85632."
+
+**request_invoice**
+* "I don't know how I can locate invoice #85632."
+* "See invoices from Ms. Hawkings."
+* "I want assistance finding my invoice #85632."
+
+**review**
+* "I need assistance to leave an opinion on your services."
+* "How can I leave a review for your products?"
+* "Is there an email to send some feedback to your company?"
+""")
+
 
 st.title("🔍 BERT Intent Classification Dashboard")
 st.header("💬 Enter Your Message")
@@ -228,6 +304,7 @@ with st.expander("📈 Classification Confusion Matrix (test data)"):
     else:
         st.warning("Confusion matrix not available.")
 
+
 with st.expander("📈 Precision & Recall Over Time (history of live predictions)"):
     pr_query = f"""
         -- Use a Common Table Expression (CTE) to prepare the data
@@ -255,9 +332,9 @@ with st.expander("📈 Precision & Recall Over Time (history of live predictions
             day,
             intent,
             -- Precision = TP / (TP + FP), handle division by zero
-            CAST(tp AS REAL) / NULLIF(tp + fp, 0) AS precision,
+            CAST(tp AS DECIMAL(10, 5)) / NULLIF(tp + fp, 0) AS `precision`,
             -- Recall = TP / (TP + FN), handle division by zero
-            CAST(tp AS REAL) / NULLIF(tp + fn, 0) AS recall
+            CAST(tp AS DECIMAL(10, 5)) / NULLIF(tp + fn, 0) AS `recall`
         FROM daily_counts
         -- Only show results where there was some activity
         WHERE tp + fp + fn > 0

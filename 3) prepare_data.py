@@ -1,3 +1,4 @@
+# 3) prepare_data.py
 """
 - Prepares cleaned data for model training. Reads cleaned human labeled data from MySQL database or falls back to the cleaned CSV.
 - Encodes text labels into numbers so the model can use. Splits the data into training, validation, and test sets.

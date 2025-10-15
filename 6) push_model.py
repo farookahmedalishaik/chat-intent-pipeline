@@ -1,4 +1,4 @@
-# 7) push_model.py
+# 6) push_model.py
 
 import os
 from huggingface_hub import HfApi, login
