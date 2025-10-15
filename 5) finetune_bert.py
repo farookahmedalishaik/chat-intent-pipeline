@@ -191,7 +191,7 @@ class CustomTrainer(Trainer):
         return super().get_train_dataloader()
 
     # --- NEW: compute_loss uses class weights or focal loss when configured ---
-    def compute_loss(self, model, inputs, return_outputs=False):
+    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
         # This overrides the default Trainer loss to plug in class weights or focal loss.
         labels = inputs.pop("labels")
         device = next(model.parameters()).device
