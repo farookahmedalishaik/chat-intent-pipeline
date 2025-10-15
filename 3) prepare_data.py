@@ -426,9 +426,9 @@ if len(X_train) == 0:
 # ---------------- Save snapshots for auditing ----------------
 try:
     # Save full dataframes (these include group_key and ph_info so you can audit splits easily)
-    final_train_df[['text_model','label','encoded_label','group_key','ph_info']].to_csv(os.path.join(ARTIFACTS_DIR, "train_snapshot.csv"), index=False, encoding="utf-8")
-    val_df[['text_model','label','encoded_label','group_key','ph_info']].to_csv(os.path.join(ARTIFACTS_DIR, "val_snapshot.csv"), index=False, encoding="utf-8")
-    test_df[['text_model','label','encoded_label','group_key','ph_info']].to_csv(os.path.join(ARTIFACTS_DIR, "test_snapshot.csv"), index=False, encoding="utf-8")
+    final_train_df[['text_raw','text_model','label','encoded_label','group_key','ph_info']].to_csv(os.path.join(ARTIFACTS_DIR, "train_snapshot.csv"), index=False, encoding="utf-8")
+    val_df[['text_raw','text_model','label','encoded_label','group_key','ph_info']].to_csv(os.path.join(ARTIFACTS_DIR, "val_snapshot.csv"), index=False, encoding="utf-8")
+    test_df[['text_raw','text_model','label','encoded_label','group_key','ph_info']].to_csv(os.path.join(ARTIFACTS_DIR, "test_snapshot.csv"), index=False, encoding="utf-8")
     print(f" Snapshots saved to {ARTIFACTS_DIR} (train/val/test snapshots).")
 except Exception as e:
     print(" Could not save snapshots for auditing:", e)
