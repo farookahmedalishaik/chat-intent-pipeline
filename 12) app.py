@@ -169,80 +169,85 @@ st.sidebar.title("📚 Understanding the Categories")
 st.sidebar.markdown("""
 This tool classifies messages into the following intents. Here are some examples:
 
-**account_management**
+**1) account_management**
 * "I would like to open an account."
 * "Create an account."
 * "Modify information on my account."
 * "I don't know how to delete the account."
 
-**check_promotions**
+**2) check_promotions**
 * "Where can I find a voucher for my family?"
 * "Do you have any rebate for orders over $50?"
 * "What's the discount on clothing?"
 * "I'd like to know the promo code for students."
 
-**complaint**
+**3) complaint**
 * "Where can I make a consumer claim against your organization?"
 * "How do I lodge a consumer complaint?"
 * "I am unhappy with your service."
 * "I have to file a customer complaint."
                     
-**contact_support**
+**4) contact_support**
 * "What hours can I call customer service?"
 * "How can I get in touch with customer support?"
 * "I have to speak with someone from customer support."
 
-**delivery_information**
+**5) delivery_information**
 * "Help me check what delivery methods I can choose."
 * "How can I check what shipment methods are available?"
 * "Do you ship to Finland?"
 
-**inquire_business_hours**
+**6) inquire_business_hours**
 * "Can you share your office business hours this week?"
 * "What are your store opening hours today?"
 
-**manage_shipping_address**
+**7) manage_shipping_address**
 * "I have troubles editing my delivery address."
 * "Help me to change the delivery address."
 * "I need support modifying my delivery address."
 
-**newsletter_subscription**
+**8) newsletter_subscription**
 * "I need help canceling my subscription to the newsletter."
 * "Help me sign up for your company newsletter."
 
-**queries_related_to_order**
+**9) queries_related_to_order**
 * "I can't add some items to order 370795561790."
 * "How do I edit purchase order #419790?"
 * "Can you help me swap something in purchase order #2680226?"
                   
-**queries_related_to_payment/fee**
+**10) queries_related_to_payment/fee**
 * "I want to see what payment options are accepted."
 * "I need help checking the early termination penalties."
 * "How can I see the cancellation fees?"
 
-**queries_related_to_refund**
+**11) queries_related_to_refund**
 * "I need assistance to check in what cases I can request a refund."
 * "Can you help me get my money back?"
 * "In which cases can I ask for a reimbursement?"
 
-**request_bill**
+**12) request_bill**
 * "I want assistance downloading bill #37777."
 * "Where can I check my bill #00108?"
 * "I want to take a quick look at bill #85632."
 
-**request_invoice**
+**13) request_invoice**
 * "I don't know how I can locate invoice #85632."
 * "See invoices from Ms. Hawkings."
 * "I want assistance finding my invoice #85632."
 
-**review**
+**14) review**
 * "I need assistance to leave an opinion on your services."
 * "How can I leave a review for your products?"
 * "Is there an email to send some feedback to your company?"
+                    
+**15) other**
+* "out-of-scope messages that do not fit any of the above categories"
+
 """)
 
 
 st.title("🔍 BERT Intent Classification Dashboard")
+st.info("Please Note: This model is an expert on the 14 intents shown in the sidebar. For any out-of-scope messages, it will predict the most similar category it was trained on.")
 st.header("💬 Enter Your Message")
 input_message = st.text_area("Type your message here:", height=150)
 
@@ -413,5 +418,22 @@ else:
     st.warning("Drill down not available: Required artifacts (test_data.pt, test_preds.npy) could not be loaded.")
 
 
+
+with st.expander("🚀 Future Scope & Model Evolution"):
+    st.markdown("""
+    This dashboard demonstrates a highly effective model on a well-defined task. The following areas represent exciting opportunities for future development:
+
+    * **Expanded Intent Coverage:** The model is currently trained on 14 core intents. A key next step is to broaden its capabilities by incorporating a wider range of user queries and needs, making the system even more versatile.
+
+    * **Integration of More Real-World Data:** This version was built using a high-quality dataset that includes both real-world examples and carefully generated synthetic data. Future iterations will be enhanced by integrating larger volumes of authentic user interactions to further improve its robustness in diverse, real-world scenarios.
+                
+    * **Deepening Semantic Understanding:** The model currently excels at identifying intents with strong contextual clues, especially  the presence of an invoice  such as the presence of an invoice. A key future enhancement is to have data that has more variations  and train the model to infer intent from more subtle language, reducing its reliance on specific keywords and making it more robust to varied user phrasing.
+
+    * **Scaling for Complexity:** The model's excellent performance on this 20,000+ entry dataset provides a strong baseline. As we scale the system by adding more data and intents, the model will face a more complex and realistic learning challenge. This will naturally lead to more nuanced performance metrics that reflect the ambiguity of real-world conversations.
+                
+    * **Validated with Rigorous Checks:** The model's high accuracy is confirmed by a series of robust sanity checks, which verify zero data leakage between the training, validation, and test sets. This ensures the performance is genuine and provides a reliable foundation for future enhancements.
+    """)
+
 st.write("---")
 st.caption("BERT Intent Classification Dashboard - Built with Streamlit")
+

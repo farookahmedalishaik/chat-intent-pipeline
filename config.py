@@ -24,7 +24,7 @@ DB_STAGING_TABLE = "messages_staging_tmp"
 SEED = 42
 TEST_RATIO = 0.15
 VALID_RATIO = 0.15
-MAX_TEXT_LENGTH = 128
+MAX_TEXT_LENGTH = 64  # BERT max is 512, but 128 or 64 is usually sufficient for short texts and it is powers of 2
 
 # Training hyperparameters (recommended defaults)
 LEARNING_RATE = 2e-5         # safe default for 2-4 epochs
@@ -63,7 +63,7 @@ ANALYSIS_MAX_CONFUSION_PAIRS_TO_PRINT = 50
 ANALYSIS_MISCLASSIFIED_SAMPLE_FILE = os.path.join(ANALYSIS_DIR, "test_misclassified_sample.csv")
 
 # --- 5. Application (UI) Settings ---
-APP_DEFAULT_CONFIDENCE_THRESHOLD = 0.75
+APP_DEFAULT_CONFIDENCE_THRESHOLD = 0.80
 APP_FALLBACK_SQLITE_DB_FILE = "runtime_logs.db"
 APP_LOW_CONFIDENCE_LOGS_TABLE = "low_conf"
 APP_PREDICTION_LOGS_TABLE = "logs"

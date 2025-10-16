@@ -333,8 +333,8 @@ for cls_idx, cls_name in enumerate(labels_list):
             f1s.append(2.0 * p * r / (p + r))
 
     best_idx = int(np.argmax(f1s)) if len(f1s) > 0 else 0
-    best_thresh = float(thresholds[best_idx]) if len(thresholds) > 0 else 0.75
-    best_thresh = max(0.01, min(0.99, best_thresh))
+    best_thresh = float(thresholds[best_idx]) if len(thresholds) > 0 else 0.80
+    best_thresh = max(best_thresh, 0.80) # Enforce a minimum threshold of 80%
     class_thresholds[cls_name] = best_thresh
 
 th_path = os.path.join(ARTIFACTS_DIR, "class_thresholds.json")
