@@ -1,3 +1,8 @@
 # .gitattibutes (LFS tracked files)
 
-artifacts/bert_intent_model/* filter=lfs diff=lfs merge=lfs -text
+#artifacts/bert_intent_model/** filter=lfs diff=lfs merge=lfs -text
+
+artifacts/bert_intent_model/*.bin filter=lfs diff=lfs merge=lfs -text		
+artifacts/bert_intent_model/*.safetensors filter=lfs diff=lfs merge=lfs -text		
+artifacts/bert_intent_model/*.json filter=lfs diff=lfs merge=lfs -text		
+artifacts/bert_intent_model/*.pt filter=lfs diff=lfs merge=lfs -text
