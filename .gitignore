@@ -1,3 +1,5 @@
+# gitignore
+
 # Editor / IDE
 .vscode/
 .idea/
@@ -72,6 +74,10 @@ artifacts/
 bert_output/
 bert_logs/
 
+# --- CRITICAL EXCEPTION: Allow LFS-tracked model to be seen by Git ---
+!artifacts/bert_intent_model
+!artifacts/bert_intent_model/*
+
 
 # Analysis outputs (generated CSVs / reports)
 analysis/*.csv
@@ -126,3 +132,6 @@ desktop.ini
 *.feather 
 
 
+# ML / Data tooling caches
+.dvc/
+.streamlit/
