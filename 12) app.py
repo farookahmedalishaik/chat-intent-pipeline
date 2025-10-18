@@ -69,7 +69,7 @@ engine = get_db_engine(
 # Determine the correct SQL function for the current timestamp based on the DB engine
 if engine.dialect.name == 'mysql':
     db_timestamp_func = "NOW()"
-else: # Default to SQLite's function or other standard SQL
+else: # Assume SQLite or others
     db_timestamp_func = "CURRENT_TIMESTAMP"
 
 
@@ -95,7 +95,7 @@ def init_db_tables(engine):
         """))
 
 
-# --- Centralized Artifact Loading ---
+# Centralized Artifact Loading with Caching
 @st.cache_resource
 def load_model_and_tokenizer():
     """Loads model and tokenizer using the utility function."""
@@ -112,8 +112,7 @@ def load_all_artifacts():
     """Loads all data and evaluation artifacts using utility functions."""
     artifacts = {}
     
-    # Load from Data Repo
-    # --- CORRECTED ARGUMENT ORDER IN ALL CALLS BELOW ---
+    # Load from Dataset Repo
     artifacts["label_mapping"] = load_artifact_from_hub(
         HF_DATASET_REPO_ID, "label_mapping.csv", pd.read_csv, LABEL_MAPPING_FILE
     )
@@ -163,7 +162,6 @@ class_thresholds = artifacts["class_thresholds"]
 init_db_tables(engine)
 
 # Sidebar
-# In app.py, replace the old sidebar code with this entire block:
 
 st.sidebar.title("📚 Understanding the Categories")
 st.sidebar.markdown("""
@@ -283,7 +281,7 @@ if input_message.strip():
         # The SQL string now includes the database function for the timestamp
         conn.execute(
             text(f"INSERT INTO {APP_PREDICTION_LOGS_TABLE} (ts, pred, actual, correct, confidence, slots) VALUES ({db_timestamp_func}, :pred, :actual, :correct, :confidence, :slots)"),
-            # The python-generated timestamp is removed from the dictionary
+            # Use None for actual and correct since we don't have ground truth here
             {"pred": pred_intent, "actual": None, "correct": None, "confidence": max_prob, "slots": slots_json}
         )
         if max_prob < threshold:
@@ -312,7 +310,7 @@ with st.expander("📈 Classification Confusion Matrix (test data)"):
 
 with st.expander("📈 Precision & Recall Over Time (history of live predictions)"):
     pr_query = f"""
-        -- Use a Common Table Expression (CTE) to prepare the data
+        -- a Common Table Expression (CTE) to prepare the data
         WITH daily_counts AS (
             SELECT
                 -- Use standard SQL DATE() function to group by day
