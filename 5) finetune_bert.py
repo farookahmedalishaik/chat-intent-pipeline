@@ -1,8 +1,7 @@
 # 5) finetune_bert.py
 
 """
-Fine-tune BERT for intent classification.
-- Uses utils.load_model_from_hub(..) for all dataset downloads to load model/tokenizer (cloud-first, with local fallback).
+- Uses utils.load_model_from_hub(..) for all dataset downloads to load model/tokenizer.
 """
 
 import os
@@ -16,7 +15,7 @@ from transformers import BertForSequenceClassification, BertTokenizer, TrainingA
 import pandas as pd
 from sklearn.metrics import f1_score, accuracy_score, precision_recall_curve, classification_report, confusion_matrix
 
-# Import centralized helpers from utils (these handle HF_TOKEN internally)
+# Import centralized helpers from utils to handle HF_TOKEN internally
 from utils import load_artifact_from_hub, load_model_from_hub
 
 # Import settings from config
@@ -40,7 +39,7 @@ from config import (
     GRADIENT_ACCUMULATION_STEPS,
 )
 
-# Local fallback file paths (used by load_artifact_from_hub as local fallback)
+# Local fallback file paths 
 TRAIN_LOCAL = os.path.join(ARTIFACTS_DIR, "train_data.pt")
 VAL_LOCAL = os.path.join(ARTIFACTS_DIR, "val_data.pt")
 LABEL_MAP_LOCAL = os.path.join(ARTIFACTS_DIR, "label_mapping.csv")
@@ -63,7 +62,7 @@ def load_artifacts_from_hub(repo_id: str):
     val_data   = load_artifact_from_hub(repo_id, "val_data.pt", torch.load, VAL_LOCAL)
     label_map  = load_artifact_from_hub(repo_id, "label_mapping.csv", pd.read_csv, LABEL_MAP_LOCAL)
 
-    # class_weights is optional
+    # class weights
     class_weights = load_artifact_from_hub(repo_id, "class_weights.npy", lambda p: np.load(p) if os.path.exists(p) else None, CLASS_WEIGHTS_LOCAL)
     if class_weights is not None:
         class_weights_t = torch.tensor(class_weights, dtype=torch.float)
@@ -88,7 +87,7 @@ os.makedirs(LOGS_DIR, exist_ok=True)
 os.makedirs(ARTIFACTS_DIR, exist_ok=True)
 
 
-# 2) Load all artifacts from the Hub (cloud first via utils)
+# 2) Load all artifacts from the Hub via utils
 
 train_data, val_data, label_map, class_weights_t = load_artifacts_from_hub(repo_id=HF_DATASET_REPO_ID)
 
@@ -118,7 +117,7 @@ train_dataset = IntentDataset(train_data["input_ids"], train_data["attention_mas
 val_dataset = IntentDataset(val_data["input_ids"], val_data["attention_mask"], val_data["labels"])
 
 
-# 4) WeightedRandomSampler (only created if SAMPLING_STRATEGY == "sampler")
+# 4) Sampler (if SAMPLING_STRATEGY=="sampler")
 
 sampler = None
 if SAMPLING_STRATEGY == "sampler":
@@ -136,7 +135,7 @@ if SAMPLING_STRATEGY == "sampler":
     print("Sampler created. Class counts:", dict(zip(unique_classes.tolist(), class_counts.tolist())))
 
 
-# 5) Load model and tokenizer (use load_model_from_hub)
+# 5) Load model and tokenizer from Hub via utils
 
 print(f"Loading tokenizer and model from {BASE_MODEL_ID}..")
 print(f"Configuring model for {num_labels} labels.")
@@ -149,7 +148,7 @@ if tokenizer is None or model is None:
 print("Successfully loaded and configured model and tokenizer.")
 
 
-# 6) Focal loss (defined but not used unless USE_FOCAL_LOSS=True)
+# 6) Focal loss (not used unless USE_FOCAL_LOSS=True)
 
 def focal_loss_fn(logits, targets, gamma=2.0, weight=None):
     """
@@ -174,10 +173,10 @@ def compute_metrics(eval_pred):
     return {"accuracy": acc, "macro_f1": macro_f1}
 
 
-# 8) Custom Trainer (overrides loss and train loader when needed)
+# 8) Custom Trainer overrides loss and train loader when needed
 
 class CustomTrainer(Trainer):
-    # keep get_train_dataloader (sampler) behavior
+    # get_train_dataloader uses custom sampler when configured
     def get_train_dataloader(self) -> DataLoader:
         # If the sampler strategy is chosen, return a DataLoader that uses our custom sampler.
         if SAMPLING_STRATEGY == "sampler" and getattr(self, "sampler", None) is not None:
@@ -190,19 +189,19 @@ class CustomTrainer(Trainer):
         # Otherwise, fall back to the parent Trainer's default method.
         return super().get_train_dataloader()
 
-    # --- NEW: compute_loss uses class weights or focal loss when configured ---
+    # compute_loss uses class weights or focal loss when configured
     def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
         # This overrides the default Trainer loss to plug in class weights or focal loss.
         labels = inputs.pop("labels")
         device = next(model.parameters()).device
 
-        # Move labels to device (inputs are handled by Trainer)
+        # Move labels to device as inputs are moved by Trainer
         labels = labels.to(device)
 
         outputs = model(**inputs)
         logits = outputs.logits
 
-        # Trainer may have class_weights attribute attached (tensor on CPU) -> move to device
+        # Get class weights if attached to trainer
         weights = getattr(self, "class_weights", None)
         if weights is not None and isinstance(weights, torch.Tensor):
             weights = weights.to(device)
@@ -251,7 +250,7 @@ trainer = CustomTrainer(
 if SAMPLING_STRATEGY == "sampler":
     trainer.sampler = sampler
 
-# --- NEW: attach class_weights tensor to trainer so compute_loss can use them ---
+# attach class_weights tensor to trainer so compute_loss can use them
 if class_weights_t is not None:
     if not isinstance(class_weights_t, torch.Tensor):
         class_weights_t = torch.tensor(class_weights_t, dtype=torch.float)
@@ -278,7 +277,7 @@ save_artifact_model_and_tokenizer(os.path.join(ARTIFACTS_DIR, "bert_intent_model
 print("Saved fine-tuned model to artifacts/bert_intent_model/")
 
 
-# 12) Single validation pass (predict once and derive artifacts)
+# 12) Single validation pass to predict once and derive artifacts
 print("Running single validation pass (predict) to produce evaluation artifacts and thresholds...")
 pred_result = trainer.predict(val_dataset)  # one inference pass
 val_logits = pred_result.predictions
@@ -307,7 +306,7 @@ if "texts" in val_data:
 out_df["probs"] = list(val_probs.tolist())
 out_df.to_csv(os.path.join(ARTIFACTS_DIR, "val_predictions_with_probs.csv"), index=False)
 
-# Also compute per-class thresholds (reuse your existing method)
+# Compute per-class thresholds based on precision-recall curve
 print("Computing per class thresholds..")
 class_thresholds = {}
 for cls_idx, cls_name in enumerate(labels_list):
