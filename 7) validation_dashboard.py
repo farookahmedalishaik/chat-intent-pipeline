@@ -21,20 +21,19 @@ st.title("Validation Results")
 # Artifact Loading
 @st.cache_data
 def load_validation_metrics():
-    """Loads pre-calculated validation metrics from the MODEL repository."""
+    """Loads pre calculated validation metrics from the MODEL repository."""
     
     # Load the classification report
     df_metrics = load_artifact_from_hub(
-        repo_id=HF_REPO_ID, # Load from MODEL repo
+        repo_id=HF_REPO_ID, 
         filename="val_classification_report.csv",
-        # CORRECTED: Removed duplicate load_fn argument
         load_fn=lambda p: pd.read_csv(p, index_col=0),
         local_fallback_path=VAL_METRICS_FILE
     )
     
     # Load the confusion matrix
     df_cm = load_artifact_from_hub(
-        repo_id=HF_REPO_ID, # Load from MODEL repo
+        repo_id=HF_REPO_ID, 
         filename="val_confusion_matrix.csv",
         # index_col=0 tells pandas to use the first column as the row labels
         load_fn=lambda p: pd.read_csv(p, index_col=0),
@@ -46,7 +45,7 @@ def load_validation_metrics():
 # Load the artifacts
 df_metrics, df_cm = load_validation_metrics()
 
-# --- Main Dashboard Logic ---
+# Main Dashboard Logic
 if df_metrics is None:
     st.error("Validation metrics report could not be loaded. Please run generate_val_metrics.py and push_model.py.")
 elif df_cm is None:
@@ -63,7 +62,7 @@ else:
 
     # Show top low-F1 labels (validation)
     labels = df_cm.index.tolist()
-    # CORRECTED: Filter by index instead of a non-existent "metric" column
+    # Filter df_metrics to only include rows corresponding to the labels in the confusion matrix
     label_metric_rows = df_metrics[df_metrics.index.isin(labels)]
     
     if not label_metric_rows.empty and "f1-score" in label_metric_rows.columns:

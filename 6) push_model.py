@@ -54,8 +54,7 @@ def main():
         else:
             print(f"{path} not found (upload skip)")
 
-    # Upload evaluation results that are specific to this model version.
-
+    # Upload additional files
     upload_if_exists(CLASS_THRESHOLDS_FILE, "class_thresholds.json", "Add per-class confidence thresholds")
     upload_if_exists(VAL_METRICS_FILE, "val_classification_report.csv", "Add validation metrics")
     upload_if_exists(VAL_CONFUSION_FILE, "val_confusion_matrix.csv", "Add validation confusion matrix")
