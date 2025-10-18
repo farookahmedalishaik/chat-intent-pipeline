@@ -74,7 +74,7 @@ def setup_database_table(conn):
         col_check = 1  # assume exists to avoid attempting an ALTER on older MySQL that might not support it
 
     if int(col_check) == 0:
-        # Add the hash column if it's missing
+        # Add the hash column if it is missing
         try:
             conn.execute(text(f"ALTER TABLE {DB_MESSAGES_TABLE} ADD COLUMN {HASH_COLUMN} VARCHAR(32) DEFAULT NULL;"))
             print(f"Added missing column '{HASH_COLUMN}' to '{DB_MESSAGES_TABLE}'.")
@@ -139,7 +139,7 @@ def run_global_deduplication(conn):
         print("Warning: deduplication delete failed:", e)
 
 
-# --- 3. Main Execution Logic ---
+# 3. Main Execution Logic
 
 def main():
     """Main function to run the data loading pipeline."""
@@ -151,7 +151,7 @@ def main():
     DRY_RUN = args.dry_run
 
     if DRY_RUN:
-        print("--- RUNNING IN DRY-RUN MODE: No changes will be made to the database. ---")
+        print("RUNNING IN DRY-RUN MODE: No changes will be made to the database.")
 
     print("\nStep 1: Reading and preparing CSV data...")
     if not os.path.exists(CLEANED_DATA_FILE):
@@ -188,7 +188,7 @@ def main():
         MYSQL_HOST,
         MYSQL_PORT,
         MYSQL_DB,
-        sqlite_fallback_path=None  # keep this MySQL only; change to a path if you want fallback
+        sqlite_fallback_path=None  
     )
 
     # Use a transaction so setup + staging + upsert + dedupe are atomic

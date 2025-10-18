@@ -1,10 +1,9 @@
 # 3) prepare_data.py
 """
-- Prepares cleaned data for model training. Reads cleaned human labeled data from MySQL database or falls back to the cleaned CSV.
+- Prepares cleaned data for model training. Reads cleaned data from MySQL database or falls back to the cleaned CSV.
 - Encodes text labels into numbers so the model can use. Splits the data into training, validation, and test sets.
-- Extracts slot-presence & sanitized slot tokens (ACCOUNT_TYPE preserved as a token like [ACCOUNT_TYPE_CHECKING],
-  sensitive placeholders mapped to presence tokens like [ORDER_PRESENT]).
-- Uses GroupShuffleSplit with an entity-derived group key (when available) to avoid entity-level leakage.
+- Extracts slot presence & sanitized slot tokens.
+- Uses GroupShuffleSplit with an entity derived group key (when available) to avoid entity level leakage.
 - Deduplicates final model input text to remove duplicates introduced by placeholder normalization.
 - Tokenizes the text and saves everything as PyTorch files.
 """
@@ -24,7 +23,7 @@ from transformers import BertTokenizer
 from urllib.parse import quote_plus
 from sqlalchemy import create_engine, text
 from utils import get_db_engine
-from collections import Counter  # added for safe stratify fallback
+from collections import Counter  # for debugging
 
 # Import all settings from the central config file
 from config import (
@@ -43,11 +42,10 @@ from config import (
     BASE_MODEL_ID
 )
 
-# ---------------- Helper: Load data (DB first, fallback to cleaned CSV) ----------------
+# Helper: Load data (DB first, fallback to cleaned CSV)
 def load_data_from_source():
     """
-    Tries to load from the DB table first. If the DB table does not include
-    the 'mappings' column (or fails), falls back to reading the local CLEANED_DATA_FILE,
+    Tries to load from the DB table first. If the DB table does not include the 'mappings' column (or fails), falls back to local CLEANED_DATA_FILE,
     which is expected to contain 'text', 'label', 'text_raw' and 'mappings'.
     """
     # Try DB first (keeps existing pipeline behavior)
@@ -69,7 +67,7 @@ def load_data_from_source():
 
     # If db loaded but doesn't include mappings, fallback to CSV which includes mappings from ingest_clean.py
     if df_db is not None:
-        # We need 'mappings' (dictionary per row) to build entity-aware groups. If it's not there, fallback.
+        # need 'mappings' (dictionary per row) to build entity aware groups. If it's not there, fallback.
         if 'mappings' in df_db.columns:
             return df_db
         else:
@@ -77,7 +75,7 @@ def load_data_from_source():
     else:
         print(" No DB dataframe available; attempting to read cleaned CSV.")
 
-    # Fallback: read cleaned CSV (this file was produced by ingest_clean.py and contains mappings)
+    # Fallback: read cleaned CSV file
     if os.path.exists(CLEANED_DATA_FILE):
         try:
             df_csv = pd.read_csv(CLEANED_DATA_FILE, dtype=str).fillna("")
@@ -89,7 +87,7 @@ def load_data_from_source():
     else:
         raise RuntimeError("No valid data source found (DB failed and CLEANED_DATA_FILE missing).")
 
-# ---------------- Helper: extract placeholder info & build model text ----------------
+# Helper: extract placeholder info & build model text
 PH_PATTERN = re.compile(r"\[([A-Z0-9_]+)(?:=([^\]]+))?\]", flags=re.IGNORECASE)
 
 def sanitize_token_value(v: str) -> str:
@@ -104,8 +102,7 @@ def sanitize_token_value(v: str) -> str:
 
 def extract_placeholders_and_build_text(original_text: str):
     """
-    Given the normalized text (which may include placeholders like [ACCOUNT_TYPE=pro_account] or [ORDER_ID_PRESENCE]),
-    this function:
+    with the normalized text that may include placeholders this function does as follows:
       - finds placeholders and their values,
       - removes placeholders from the text,
       - builds a small set of feature tokens for model input:
@@ -151,9 +148,9 @@ def extract_placeholders_and_build_text(original_text: str):
         if ("PERSON" in name) or (name.startswith("PERSON") and "NAME" in name):
             info["person_present"] = True
 
-        # Special cases to keep useful, non-sensitive values
+        # Special cases to keep useful, non sensitive values
         if name == "ACCOUNT_TYPE":
-            # value might look like "standard_account" in your pipeline; sanitize
+            
             if val:
                 info["account_type"] = sanitize_token_value(val)
         elif name.startswith("REFUND_AMT_BIN") or name.startswith("REFUND_AMOUNT") or name.startswith("REFUND_AMT"):
@@ -167,7 +164,8 @@ def extract_placeholders_and_build_text(original_text: str):
             # collect other placeholders for debugging/audit
             info["other_placeholders"].append((name, val))
 
-    # Build tokens: account_type -> [ACCOUNT_TYPE_<VAL>] (keeps signal for checking vs savings)
+    # Build feature tokens (account type, refund bin, date bin, presence flags)
+
     if info["account_type"]:
         feature_tokens.append(f"[ACCOUNT_TYPE_{info['account_type']}]")
 
@@ -195,26 +193,26 @@ def extract_placeholders_and_build_text(original_text: str):
     if info["person_present"]:
         feature_tokens.append("[PERSON_PRESENT]")
 
-    # Remove placeholders from the text (prevent identity leakage)
+    # Remove placeholders from the text to prevent identity leakage
     model_text = PH_PATTERN.sub(" ", text)
-    # Clean spacing and lowercase (keep consistent with earlier pipeline)
+    # Clean spacing and lowercase to keep consistent with pipeline)
     model_text = re.sub(r"\s+", " ", model_text).strip().lower()
 
-    # Append feature tokens to the end of the input text (keeps model simple, no architecture changes)
+    # Append feature tokens to the end of the input text 
     if feature_tokens:
         model_text = f"{model_text} {' '.join(feature_tokens)}".strip()
 
-    # FINAL CLEANUP (important)
-    # 1) Remove any bracketed leftover tokens that contain digits or hex-like substrings (unique ids/hashes)
+    # FINAL CLEANUP
+    # 1) Remove any bracketed leftover tokens that contain digits or hex like substrings (unique ids/hashes)
     model_text = re.sub(r"\[[^\]]*(?:\d|[0-9a-f]{6,}|hash)[^\]]*\]", " [ID_PRESENT] ", model_text, flags=re.IGNORECASE)
-    # 2) Remove label-like raw tokens: e.g., tokens that follow 'request_' or 'queries_related_' patterns
+    # 2) Remove label like raw tokens: e.g., tokens that follow 'request_' or 'queries_related_' patterns
     model_text = re.sub(r"\b(request_[a-z0-9_/]+|queries_related_[a-z0-9_/]+)\b", " ", model_text, flags=re.IGNORECASE)
     # 3) Normalize whitespace
     model_text = re.sub(r"\s+", " ", model_text).strip()
 
     return model_text, info
 
-# ---------------- Main Script Execution ----------------
+#  Main Script Execution
 
 print(" Step 1: Preparing artifacts directory")
 if os.path.exists(ARTIFACTS_DIR):
@@ -225,9 +223,9 @@ print(f" Clean artifacts directory created at: '{ARTIFACTS_DIR}'")
 print("\n Step 2: Loading and Cleaning Data")
 df = load_data_from_source()
 
-# If we still don't have mappings but have the cleaned CSV loaded, ensure mappings column exists (it should)
+# If still don't have mappings but have the cleaned CSV loaded, ensure mappings column exists (it should)
 if 'mappings' not in df.columns:
-    # It is OK — we will extract placeholders from the pre-normalized 'text' field itself.
+    # is OK since we will extract placeholders from the pre normalized 'text' field itself.
     print(" Note: 'mappings' column not present. Placeholder extraction will be done from the normalized text.")
 
 # Keep only the columns we care about (text + label). Some sources may have text_raw or mappings; keep them if present.
@@ -240,7 +238,7 @@ df['text'] = df['text'].astype(str).str.strip()
 df['label'] = df['label'].astype(str).str.strip()
 print(f" Data loaded & cleaned. Total rows are: {len(df)}")
 
-# ---------------- Extract placeholders and build model-ready text ----------------
+# Extract placeholders and build model ready text
 print("\n Step 3: Extract placeholders -> build model text & extract slot info")
 
 # Apply extraction to every row (vectorized apply)
@@ -255,7 +253,7 @@ for idx, orig in df['text'].items():
 df['text_model'] = extracted_texts
 df['ph_info'] = placeholder_infos  # store dicts for audit and grouping
 
-# Optionally, create simple boolean columns for quick checks & grouping
+# creating simple boolean columns for quick checks & grouping
 df['order_present'] = df['ph_info'].apply(lambda d: d.get('order_present', False))
 df['invoice_present'] = df['ph_info'].apply(lambda d: d.get('invoice_present', False))
 df['bill_present'] = df['ph_info'].apply(lambda d: d.get('bill_present', False))
@@ -268,7 +266,7 @@ print(" Example transformed text (first 5):")
 for t in df['text_model'].head(5).tolist():
     print("-", t[:200])
 
-# ---------------- Detect conflicts between transformed text and labels ----------------
+# Detect conflicts between transformed text and labels
 print("\n Step 4: Detect transformed-text conflicts (same text -> multiple labels)")
 conflict_counts = df.groupby('text_model')['label'].nunique()
 conflicts = conflict_counts[conflict_counts > 1]
@@ -286,17 +284,17 @@ if num_conflicts > 0:
     except Exception as e:
         print(" -> Could not save conflicts CSV:", e)
 
-# ---------------- Remove exact final-model-text duplicates (they were created by generic placeholders) ----------------
+# Remove exact final model text duplicates which  were created by generic placeholders
 print("\n Step 5: Dropping exact duplicate model texts (to avoid identical training rows)")
 before = len(df)
 df = df.drop_duplicates(subset=['text_model'], keep='first').reset_index(drop=True)
 after = len(df)
 print(f" Dropped {before - after} duplicate rows. Remaining: {after}")
 
-# ---------------- Build entity group_key for GroupShuffleSplit (to prevent entity leakage) ----------------
+# Build entity group_key for GroupShuffleSplit (to prevent entity leakage)
 print("\n Step 6: Building group keys for entity-aware splitting (ORDER/INVOICE/EMAIL/PERSON/PHONE)")
 def build_group_key(row):
-    # Prefer using explicit mappings (if present in df) otherwise derive from ph_info
+    # using explicit mappings if present in df else derive from ph_info
     # If mappings is available as a dict or JSON string, try to extract the original sensitive value and hash it.
     mapped = None
     if 'mappings' in row and row['mappings'] not in (None, "", "nan"):
@@ -316,13 +314,13 @@ def build_group_key(row):
             vals = mapped.get(k)
             if vals and len(vals) > 0:
                 v = str(vals[0])
-                # Use a hashed stable id (we do not expose raw values)
+                # Using a hashed stable id not to expose raw values
                 return hashlib.md5(v.encode("utf-8")).hexdigest()
 
     # Else, if ph_info has flags and maybe values (e.g., account_type not unique), build a composite keyed hash:
     ph = row.get('ph_info', {})
     if isinstance(ph, dict):
-        # prefer non-sensitive stable tokens: account_type + invoice/order presence
+        # prefer non sensitive stable tokens: account_type + invoice/order presence
         parts = []
         if ph.get('account_type'):
             parts.append(f"acct:{ph.get('account_type')}")
@@ -336,13 +334,13 @@ def build_group_key(row):
             # create deterministic hashed group key
             return hashlib.md5(("|".join(parts)).encode("utf-8")).hexdigest()
 
-    # As last resort, use the model_text's hash (this groups exact duplicates)
+    # use the model_text's hash (this groups exact duplicates)
     return hashlib.md5(row['text_model'].encode("utf-8")).hexdigest()
 
 # Apply group key
 df['group_key'] = df.apply(build_group_key, axis=1)
 
-# ---------------- Encode labels ----------------
+# Encode labels
 print("\n Step 7: Encoding labels")
 label_encoder = LabelEncoder()
 df['encoded_label'] = label_encoder.fit_transform(df['label'])
@@ -353,7 +351,7 @@ os.makedirs(ARTIFACTS_DIR, exist_ok=True)
 label_mapping.to_csv(label_mapping_path, index=False)
 print(f" Labels encoded into {num_labels} classes and saved mapping to: {label_mapping_path}")
 
-# ---------------- Group-aware splitting ----------------
+# Group-aware splitting
 print("\n Step 8: Group-aware splitting (entity aware)")
 
 groups = df['group_key'].astype(str)
@@ -423,9 +421,9 @@ if suspicious_tokens:
 if len(X_train) == 0:
     raise RuntimeError("No training examples after group-aware split. Check TEST_RATIO/VALID_RATIO and grouping logic.")
 
-# ---------------- Save snapshots for auditing ----------------
+# Save snapshots for auditing
 try:
-    # Save full dataframes (these include group_key and ph_info so you can audit splits easily)
+    # Save full dataframes (these include group_key and ph_info for ease of auditing splits)
     final_train_df[['text_raw','text_model','label','encoded_label','group_key','ph_info']].to_csv(os.path.join(ARTIFACTS_DIR, "train_snapshot.csv"), index=False, encoding="utf-8")
     val_df[['text_raw','text_model','label','encoded_label','group_key','ph_info']].to_csv(os.path.join(ARTIFACTS_DIR, "val_snapshot.csv"), index=False, encoding="utf-8")
     test_df[['text_raw','text_model','label','encoded_label','group_key','ph_info']].to_csv(os.path.join(ARTIFACTS_DIR, "test_snapshot.csv"), index=False, encoding="utf-8")
@@ -433,14 +431,14 @@ try:
 except Exception as e:
     print(" Could not save snapshots for auditing:", e)
 
-# ---------------- Compute Class Weights ----------------
+# Compute Class Weights
 print("\n Step 9: Computing Class Weights")
 class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train), y=y_train)
 class_weights_path = os.path.join(ARTIFACTS_DIR, "class_weights.npy")
 np.save(class_weights_path, class_weights)
 print(f" Class weights saved to: {class_weights_path}")
 
-# ---------------- Tokenize and Save as .pt files ----------------
+#Tokenize and Save as .pt files 
 print("\n Step 10: Tokenizing and Saving Tensors")
 tokenizer = BertTokenizer.from_pretrained(BASE_MODEL_ID)
 
@@ -455,7 +453,7 @@ train_encodings = tokenize_texts(X_train)
 val_encodings = tokenize_texts(X_val)
 test_encodings = tokenize_texts(X_test)
 
-# Save datasets: include 'texts' field (text_model) for error analysis
+# Save datasets that includes 'texts' field for error analysis
 torch.save({
     "input_ids": train_encodings["input_ids"],
     "attention_mask": train_encodings["attention_mask"],
