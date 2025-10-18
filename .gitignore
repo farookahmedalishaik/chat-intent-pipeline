@@ -70,9 +70,20 @@ runtime_logs.db
 
 
 # Artifacts / training outputs
-artifacts/
+#artifacts/
 bert_output/
 bert_logs/
+
+# --- CRITICAL EXCEPTION: Allow LFS-tracked model to be seen by Git ---
+
+!artifacts/bert_intent_model/
+
+# We only need LFS to see these specific file types inside the folder
+!artifacts/bert_intent_model/*.bin
+!artifacts/bert_intent_model/*.safetensors
+!artifacts/bert_intent_model/*.json
+!artifacts/bert_intent_model/*.pt
+
 
 
 # Analysis outputs (generated CSVs / reports)
@@ -81,6 +92,9 @@ analysis/*.json
 
 # Also ignore low-F1 report artifacts (sometimes generated in artifacts/)
 artifacts/low_f1_errors.csv
+artifacts/train_snapshot.csv
+artifacts/val_snapshot.csv
+artifacts/test_snapshot.csv
 
 
 # Database / local dumps
@@ -132,8 +146,3 @@ desktop.ini
 .dvc/
 .streamlit/
 
-# --- CRITICAL EXCEPTION: Allow LFS-tracked model to be seen by Git ---
-
-!artifacts/bert_intent_model
-!artifacts/bert_intent_model/
-!artifacts/bert_intent_model/*
