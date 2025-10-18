@@ -18,7 +18,7 @@ if not os.path.exists(RAW_DATA_FILE):
 df_raw = pd.read_csv(RAW_DATA_FILE)
 print("Columns:", df_raw.columns.tolist())
 
-# Standardize column names that allow multiple variants
+# Standardize column names which allows multiple variants
 if "query" in df_raw.columns:
     df_raw.rename(columns={"query": "text"}, inplace=True)
 if "intent" in df_raw.columns:

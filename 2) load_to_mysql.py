@@ -21,7 +21,7 @@ from config import (
     MYSQL_DB
 )
 
-# --- 1. Configuration ---
+# 1. Configuration
 HASH_COLUMN = "md5_hash"
 
 # CLI: dry-run flag
@@ -31,7 +31,7 @@ DRY_RUN = False
 Path("backups").mkdir(exist_ok=True)
 
 
-# --- 2. Helper Functions ---
+# 2. Helper Functions
 
 def compute_md5(text_series):
     """Compute MD5 for each entry in a pandas Series (returns a Series)."""
@@ -69,7 +69,7 @@ def setup_database_table(conn):
             {"db": MYSQL_DB, "table": DB_MESSAGES_TABLE, "col": HASH_COLUMN}
         ).fetchone()[0]
     except Exception as e:
-        # If information schema query fails for some reason, just proceed (best effort)
+        # If information schema query fails for some reason this is non fatal
         print("Warning: could not check information_schema for column existence:", e)
         col_check = 1  # assume exists to avoid attempting an ALTER on older MySQL that might not support it
 
@@ -81,7 +81,7 @@ def setup_database_table(conn):
         except Exception as e:
             print(f"Warning: failed to add column '{HASH_COLUMN}': {e}")
 
-    # Re-check presence of the column — fail loudly if it still doesn't exist (critical)
+    # Re check the presence of column — fail if it still doesn't exist (critical)
     try:
         col_check2 = conn.execute(
             text("""
@@ -95,7 +95,7 @@ def setup_database_table(conn):
         col_check2 = 0
 
     if int(col_check2) == 0:
-        # This is critical: downstream logic expects the hash column to exist for dedupe/upsert
+        # downstream logic expects the hash column to exist for dedupe/upsert
         raise RuntimeError(f"Critical: could not ensure required column '{HASH_COLUMN}' exists on table '{DB_MESSAGES_TABLE}'. Check DB permissions and schema.")
 
     # Populate missing hash values using SQL MD5 for performance (if any rows exist without it)
