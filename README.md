@@ -17,7 +17,7 @@ This repository contains an end‑to‑end pipeline for classifying user intents
 * **Libraries:** `transformers` (Hugging Face), `PyTorch`, `spaCy` `Presidio` `pandas`, `numpy`, `scikit-learn`, `sqlalchemy`, `pymysql`, `plotly`, `streamlit`, `huggingface_hub`
 
 
-👉 https://chat-intent-pipeline-qvnch3q6hnnrknrjdnurdk.streamlit.app/ **[View Live Streamlit App]**
+👉 https://chat-intent-pipeline-farook.streamlit.app/ **[View Live Streamlit App]**
 
 
 ## Table of Contents
