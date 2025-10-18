@@ -156,7 +156,7 @@ Purpose: Runs the Streamlit dashboard, loading the model/artifacts from Hugging 
 # 🚀 Live Demo
 Experience the deployed application and test its intent classification capabilities in real-time:
 
-👉 https://chat-intent-pipeline-qvnch3q6hnnrknrjdnurdk.streamlit.app/ [Live Streamlit App]
+👉 https://chat-intent-pipeline-farook.streamlit.app/ 
 
 
 
