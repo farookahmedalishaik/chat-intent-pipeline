@@ -4,7 +4,7 @@
 """
 run_all_sanity_checks.py
 
-One-file runner that executes the must-do sanity checks described:
+executes mulitple must do sanity checks:
 - overlap checks for raw text / text_model / tokenized input_ids / group_key
 - placeholder-vs-label correlation check
 - confusion matrix + top confusion pairs
@@ -13,12 +13,8 @@ One-file runner that executes the must-do sanity checks described:
 - verify class_weights.npy vs label mapping
 - preprocessing collisions (multiple raw -> same processed text_model)
 
-Saves a few CSVs into ARTIFACTS_DIR (confusion_pairs_summary.csv,
-placeholder_counts_by_label.csv, preprocessing_collisions_sample.csv)
-and prints results to stdout.
+Saves a few CSVs into ARTIFACTS_DIR (confusion_pairs_summary.csv,placeholder_counts_by_label.csv, preprocessing_collisions_sample.csv)
 
-Usage:
-    python run_all_sanity_checks.py --artifacts artifacts --num_token_samples 5000
 """
 
 import argparse
@@ -36,7 +32,7 @@ try:
 except Exception:
     torch = None
 
-# ---------- CLI ----------
+#  CLI 
 parser = argparse.ArgumentParser(description="Run pipeline sanity checks")
 parser.add_argument("--artifacts", "-a", default="artifacts", help="Path to artifacts directory")
 parser.add_argument("--num_token_samples", "-n", type=int, default=5000, help="How many tokenized samples to inspect (per file)")
@@ -51,7 +47,7 @@ INSPECT_CLASS = args.inspect_class
 
 os.makedirs(ARTIFACTS_DIR, exist_ok=True)
 
-# ---------- Helpers ----------
+#  Helpers 
 def safe_load_csv(path):
     if not os.path.exists(path):
         return None
@@ -62,7 +58,7 @@ def safe_load_csv(path):
         return None
 
 def detect_text_columns(df):
-    # prefer text_model, text_raw, text
+    # detect likely text_model, text_raw, text columns
     candidates = {}
     for col in df.columns:
         lc = col.lower()
@@ -79,7 +75,7 @@ def print_header(title):
     print(title)
     print("="*80 + "\n")
 
-# ---------- 1) Overlap checks ----------
+# 1) Overlap checks
 def check_overlaps():
     print_header("1) DATA OVERLAP CHECKS (raw text, text_model, group_key)")
     files = {
@@ -135,7 +131,7 @@ def check_overlaps():
     else:
         print("\n[group_key] not present in train_snapshot.csv (or other snapshots)")
 
-# ---------- 2) Tokenized input_ids overlap ----------
+# 2) Tokenized input_ids overlap 
 def check_tokenized_overlap():
     print_header("2) TOKENIZED INPUT_IDS OVERLAP (byte-level)")
 
@@ -183,10 +179,10 @@ def check_tokenized_overlap():
         inter = len(sets[a] & sets[b])
         print(f"  {a} ∩ {b} (tokenized bytes): {inter}")
 
-# ---------- 3) Placeholder vs label correlation ----------
+#  3) Placeholder vs label correlation 
 def placeholders_vs_labels():
     print_header("3) PLACEHOLDER -> LABEL CORRELATION (on validation set)")
-    # Try to locate a validation predictions file first
+    # look for val_predictions_with_probs.csv or val_snapshot.csv
     val_preds_path = os.path.join(ARTIFACTS_DIR, "val_predictions_with_probs.csv")
     val_snapshot_path = os.path.join(ARTIFACTS_DIR, "val_snapshot.csv")
 
@@ -202,7 +198,6 @@ def placeholders_vs_labels():
                 text_col = c
                 break
         if text_col is None:
-            # maybe 'text' wasn't included; try 'true' or else abort
             print("[WARN] val_predictions_with_probs.csv has no text column; attempting to use 'true'/'pred' only.")
             return None
         # label column: 'true' or 'true_id' or 'true_label'
@@ -246,7 +241,7 @@ def placeholders_vs_labels():
         if df is None:
             print("[WARN] Could not read val_snapshot.csv")
             return None
-        # find likely text column
+        # detect text and label columns
         cols = detect_text_columns(df)
         text_col = cols.get("text_model") or cols.get("text") or cols.get("text_raw")
         label_col = "label" if "label" in df.columns else None
@@ -281,7 +276,7 @@ def placeholders_vs_labels():
         print("[WARN] No val_predictions_with_probs.csv or val_snapshot.csv found — cannot compute placeholder counts.")
         return None
 
-# ---------- 4) Confusion matrix and top confusion pairs ----------
+# 4) Confusion matrix and top confusion pairs
 def confusion_and_top_pairs():
     print_header("4) CONFUSION MATRIX & TOP CONFUSION PAIRS")
     preds_path = os.path.join(ARTIFACTS_DIR, "val_predictions_with_probs.csv")
@@ -328,7 +323,7 @@ def confusion_and_top_pairs():
             print(f"  {t} -> {p} : {cnt}")
     return df
 
-# ---------- 5) Show misclassified examples for a target class ----------
+# 5) Show misclassified examples for a target class 
 def show_misclassified_examples(df_preds):
     print_header(f"5) MISCLASSIFIED EXAMPLES FOR CLASS: {INSPECT_CLASS}")
     if df_preds is None:
@@ -373,7 +368,7 @@ def show_misclassified_examples(df_preds):
         if "probs" in r and r["probs"]:
             print("probs:", r["probs"])
 
-# ---------- 6) Confidence distribution / calibration stats ----------
+# 6) Confidence distribution / calibration stats 
 def confidence_stats(df_preds):
     print_header("6) CONFIDENCE DISTRIBUTION / PER-CLASS CONFIDENCE STATS")
     if df_preds is None:
@@ -388,7 +383,7 @@ def confidence_stats(df_preds):
     for v in df_preds["probs"].tolist():
         if isinstance(v, str):
             try:
-                arr = json.loads(v.replace("'", '"'))  # try to be tolerant
+                arr = json.loads(v.replace("'", '"'))  # handle single quotes
                 probs_list.append(np.array(arr, dtype=float))
             except Exception:
                 probs_list.append(None)
@@ -438,7 +433,7 @@ def confidence_stats(df_preds):
     sum_df.to_csv(out_csv, index=False)
     print(f"\nSaved per-class confidence stats to {out_csv}")
 
-# ---------- 7) Verify class weights file vs label mapping ----------
+#  7) Verify class weights file vs label mapping
 def verify_class_weights():
     print_header("7) VERIFY CLASS_WEIGHTS (class_weights.npy) vs label mapping")
     cw_path = os.path.join(ARTIFACTS_DIR, "class_weights.npy")
@@ -478,10 +473,10 @@ def verify_class_weights():
                 print(f"  {lab}: {w:.4f}")
     return
 
-# ---------- 8) Preprocessing collisions (raw -> processed) ----------
+# 8) Preprocessing collisions (raw -> processed)
 def preprocessing_collisions():
     print_header("8) PREPROCESSING COLLISIONS (distinct raw -> same text_model)")
-    # look for snapshot files that likely contain raw -> text_model mappings
+    # look for train/val/test snapshots
     candidates = []
     for fname in ("train_snapshot.csv", "val_snapshot.csv", "test_snapshot.csv"):
         p = os.path.join(ARTIFACTS_DIR, fname)
@@ -520,7 +515,7 @@ def preprocessing_collisions():
             out_df.to_csv(out_csv, index=False)
             print(f"  Saved collisions sample to {out_csv}")
 
-# ---------- Run everything ----------
+#  Run everything
 def run_all():
     check_overlaps()
     check_tokenized_overlap()
