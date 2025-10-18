@@ -14,7 +14,7 @@ from config import (
 )
 from utils import load_artifact_from_hub
 
-# --- Utility helpers  ---
+# Utility helpers 
 def read_metrics_and_pick_low_f1(metrics_df, labels_list, k=3):
     metrics_for_labels = metrics_df[metrics_df["metric"].isin(labels_list)].copy()
     if "f1-score" not in metrics_for_labels.columns:
@@ -27,13 +27,13 @@ def get_texts_from_data(data_dict):
     raise ValueError("'texts' key not found in test_data.pt. Please re run prepare_data.py.")
 
 
-# --- Main script flow ---
+# Main script flow
 def main():
     print("--- Step 1: Loading artifacts (cloud-first) ---")
     test_metrics_df = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_metrics_bert.csv", pd.read_csv, TEST_METRICS_FILE)
     label_df = load_artifact_from_hub(HF_DATASET_REPO_ID, "label_mapping.csv", pd.read_csv, LABEL_MAPPING_FILE)
     test_data = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_data.pt", torch.load, TEST_DATA_FILE)
-    y_pred = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_preds.npy", np.load, TEST_PREDS_FILE) # Also load the predictions file
+    y_pred = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_preds.npy", np.load, TEST_PREDS_FILE)
 
 
     if test_metrics_df is None or label_df is None or test_data is None or y_pred is None:

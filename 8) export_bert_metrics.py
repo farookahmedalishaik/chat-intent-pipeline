@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import TensorDataset, DataLoader
 from sklearn.metrics import classification_report, confusion_matrix
 
-# Import required settings and the new helper functions
+# Import required settings and the helper functions
 from config import (
     ARTIFACTS_DIR, ANALYSIS_DIR, TEST_DATA_FILE, LABEL_MAPPING_FILE,
     MODEL_DIR_PATH, TEST_PREDS_FILE, TEST_METRICS_FILE,
@@ -62,13 +62,13 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    # --- Cloud First Loading ---
-    print("\n--- Step 1: Loading artifacts (cloud-first) ---")
+    # Load artifacts via Hub
+    print("\n--- Step 1: Loading artifacts (cloud first) ---")
     test_data = load_artifact_from_hub(HF_DATASET_REPO_ID, "test_data.pt", torch.load, TEST_DATA_FILE)
     label_df = load_artifact_from_hub(HF_DATASET_REPO_ID, "label_mapping.csv", pd.read_csv, LABEL_MAPPING_FILE)
     _tokenizer, model = load_model_from_hub(HF_REPO_ID)
 
-    # --- Validation ---
+    # Validation
     if test_data is None or label_df is None or model is None:
         print("\n Critical artifact missing. Could not load from Hub or local fallback. Exiting.")
         sys.exit(1)
@@ -76,7 +76,7 @@ def main():
     labels = label_df["label"].tolist()
     print(f"Loaded {len(labels)} labels.")
 
-    # --- Main Logic (with batching) ---
+    # Main Logic with batching
     print("\n--- Step 2: Running predictions in batches ---")
     input_ids = test_data["input_ids"]
     attention_mask = test_data["attention_mask"]
