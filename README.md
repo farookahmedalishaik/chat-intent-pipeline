@@ -107,23 +107,49 @@ This project isn't just about building a model; it's about building a robust, re
 
 The project follows a sequential data and model flow, ensuring modularity and reproducibility:
 
-```mermaid
-    A[Raw Data] --> B(1. ingest_clean.py);
-    B --> C[Cleaned CSV];
-    C --> D(2. load_to_mysql.py);
-    D --> E[MySQL Database];
-    E --> F(3. prepare_data.py);
-    F --> G[Artifacts Folder (.pt, .csv, .npy)];
-    G --> H(4. finetune_bert.py);
-    H --> I[Trained Model];
-    G & I --> J(5. export_bert_metrics.py);
-    J --> K [Metrics & Predictions];
-    I & K --> L(6. push_model.py);
-    L --> M[Hugging Face Hub];
-    M --> N(7. app.py);
-    N --> O[Streamlit Cloud Deployment];
-```
+1. Data Ingestion & Cleaning (ingest_clean.py)
 
+Purpose: Reads raw data, cleans it, normalizes text using preprocess.py (spaCy/Presidio), extracts placeholders, and saves the cleaned dataset (cleaned_all.csv) with mappings.
+
+2. Database Loading (load_to_mysql.py)
+
+Purpose: Loads cleaned data (cleaned_all.csv) into MySQL, using hash-based deduplication on raw text for data integrity.
+
+3. Data Preparation for Model (prepare_data.py)
+
+Purpose: Loads data (DB preferred), creates model-ready text (text_model) with feature tokens, encodes labels, performs group-aware train/val/test splits, calculates class weights, tokenizes text, and saves final datasets as .pt files and audit snapshots as .csv.
+
+4. Model Fine-tuning (finetune_bert.py)
+
+Purpose: Loads prepared data and base BERT model, fine-tunes on training data using Trainer (handles class imbalance), evaluates on validation data, calculates class-specific confidence thresholds (min 80%), and saves the best model locally.
+
+5. Final Model Evaluation (export_bert_metrics.py)
+
+Purpose: Loads the best model and test data (.pt), runs predictions on unseen data, and generates final metrics, confusion matrix, and prediction files.
+
+6. Error Analysis (error_analysis_clean.py, analysis/export_top_confusions.py)
+
+Purpose: Uses test predictions to identify low-performing classes and exports misclassified examples for review.
+
+7. Artifact & Model Pushing (push_data_artifacts.py, push_model.py, push_evaluation_artifacts.py)
+
+Purpose: Uploads key artifacts (prepared data, model, thresholds, metrics) to dedicated Hugging Face Hub repositories for central storage and versioning.
+
+8. Sanity Checking (run_all_sanity_checks.py)
+
+Purpose: Performs crucial QA checks (e.g., data overlap, collisions) after data preparation and evaluation to detect potential issues like leakage.
+
+9. Application Serving (app.py)
+
+Purpose: Runs the Streamlit dashboard, loading the model/artifacts from Hugging Face Hub, providing a UI for predictions (with confidence thresholding for "other"), displaying results/metrics, and logging predictions.
+
+10. Supporting Files
+
+* config.py: Centralizes project configurations (paths, hyperparameters, credentials, Hugging Face repo IDs).
+* preprocess.py: Handles text cleaning and entity/placeholder replacement entities with using spaCy and Presidio.
+* utils.py: Provides shared helper functions loading artifacts/models from (cloud loading, DB connection).
+* .env: Stores sensitive secrets (API keys, passwords).
+* requirements.txt: Lists project dependencies to run the project.
 
 
 
@@ -158,10 +184,10 @@ Note: These values might vary with each training run.
 
 The fine-tuned BERT model's performance on the unseen test set is summarized below.A full interactive confusion matrix is available in the live Streamlit dashboard.
 
-* Accuracy = 0.925
-* Precision =0.920
-* Recall = 0.930
-* F1-Score = 0.925
+* Accuracy = 0.98+
+* Precision =0.98+
+* Recall = 0.98+
+* F1-Score = 0.98+
 
 
 # 🗄️ Data Sources & Management
