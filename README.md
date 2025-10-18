@@ -257,21 +257,37 @@ Make sure MYSQL server is running and have created a database like intent_db. Th
 ### 3. Prepare and tokenzide data for BERT , saving to `artifacts/`:
 * python prepare_data.py
 
-### 4. Fine-tune BERT Model (Creates `bert_output/` and updates `artifacts/bert_intent_model/`):
-* python finetune_bert.py
+### 4. Push Data Artifacts to Hugging Face Hub:
+* push_data_artifacts.py
 
-### 5. Evaluate the model and exports metrics (Updates `artifacts/`):
-* python export_bert_metrics.py
+### 5. Fine-tune BERT Model (Creates `bert_output/` and updates `artifacts/bert_intent_model/`):
+* python finetune_bert.py
 
 ### 6. Push the final Model & Artifacts to Hugging Face Hub:
 * python push_model.py
 
-## 7. Run Streamlit App Locally (for testing local deployment)
+### 7. Run Validation Dashboard
+* python validation_dashboard.py
+
+### 8. Evaluate the model and exports metrics (Updates `artifacts/`) (Test Set):
+* python export_bert_metrics.py
+
+### 9. Push Evaluation Metrics to Data Repository
+* python push_evaluation_metrics.py
+
+### 10. Targeted Error Analysis & Confusion Pair Analysis
+* python error_analysis.py
+
+* python analysis_export_top_confusions.py
+
+### 11. Run All Sanity Checks
+* python run_all_santity_cheks.py
+
+## 12. Run Streamlit App Locally (for testing local deployment)
 To test the Streamlit dashboard on your local machine:
 
 * streamlit run app.py
 
-This will open the application in your web browser.
 
 
 # ☁️ Deployment
@@ -282,8 +298,6 @@ For the deployed app to function, the following are configures as Streamlit Secr
 * HF_TOKEN: A read only Hugging Face API token
 
 * MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DB: Credntials for the MYSQL database.
-
-
 
 
 
