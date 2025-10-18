@@ -133,6 +133,7 @@ desktop.ini
 .streamlit/
 
 # --- CRITICAL EXCEPTION: Allow LFS-tracked model to be seen by Git ---
+
 !artifacts/bert_intent_model
 !artifacts/bert_intent_model/
 !artifacts/bert_intent_model/*
