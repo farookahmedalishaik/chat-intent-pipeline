@@ -33,10 +33,8 @@ venv/
 .venv/
 env/
 
-# -----------------------
-# Model & binary artifacts (do NOT commit)
-# -----------------------
-# model checkpoints and heavy binary weights
+
+# Model & binary artifacts (do NOT commit) # model checkpoints and heavy binary weights
 *.pt
 *.bin
 *.ckpt
@@ -70,11 +68,10 @@ runtime_logs.db
 
 
 # Artifacts / training outputs
-#artifacts/
 bert_output/
 bert_logs/
 
-# --- CRITICAL EXCEPTION: Allow LFS-tracked model to be seen by Git ---
+# EXCEPTION to allow LFS-tracked model to be seen by Git
 
 !artifacts/bert_intent_model/
 
@@ -90,7 +87,7 @@ bert_logs/
 analysis/*.csv
 analysis/*.json
 
-# Also ignore low-F1 report artifacts (sometimes generated in artifacts/)
+# Also ignore low F1 report artifacts (sometimes generated in artifacts/)
 artifacts/low_f1_errors.csv
 artifacts/train_snapshot.csv
 artifacts/val_snapshot.csv
@@ -119,9 +116,9 @@ Thumbs.db
 *.swp              # vim swap
 desktop.ini
 
-# -----------------------
+
 # Misc / misc caches
-# -----------------------
+
 # mac/fuse hidden directories, etc (optional)
 .AppleDouble
 .LSOverride
