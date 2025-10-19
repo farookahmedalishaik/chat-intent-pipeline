@@ -1,3 +1,5 @@
+# utils.py
+
 """A central place for shared helper functions.
 
 This file contains:
@@ -5,10 +7,6 @@ This file contains:
  - load_artifact_from_hub: cloud first artifact loader (with local fallback)
  - load_model_from_hub: cloud first model loader (NO local fallback on failure — prints message)
  - get_db_engine: helper that tries MySQL then optional SQLite fallback
-
- - load_model_from_hub now attempts to load the model/tokenizer from the Hugging Face repo
-   and WILL NOT FALL BACK to a local directory if the cloud load fails. Instead it prints
-   a clear message and returns (None, None).
 """
 
 import os
@@ -23,7 +21,7 @@ from sqlalchemy import create_engine, text
 
 def tensor_to_numpy(t):
     """
-    Safely convert a torch Tensor (possibly on GPU) to a numpy ndarray.
+    Safely convert a torch Tensor to a numpy ndarray.
     - If `t` is a torch tensor, call t.cpu().numpy()
     - Otherwise, fall back to np.asarray(t)
     If conversion fails, raises a RuntimeError so the caller can handle it.
@@ -33,7 +31,7 @@ def tensor_to_numpy(t):
             return t.cpu().numpy()
         return np.asarray(t)
     except Exception as e:
-        # Fail loudly so the problem is obvious during debugging
+        # Fail so the problem is obvious during debugging
         raise RuntimeError(f"Could not convert tensor to numpy: {e}")
 
 def load_artifact_from_hub(
@@ -76,11 +74,7 @@ def load_artifact_from_hub(
         
 def load_model_from_hub(repo_id: str, **kwargs):
     """
-    Cloud-first loader for the entire model (tokenizer + classification head).
-
-    This function will NOT attempt to fallback to a local model directory. If loading from the Hugging Face Hub fails, the
-    function prints a clear message and returns (None, None).
-
+    Cloud first loader for the entire model (tokenizer + classification head).
     Args:
         - repo_id: Hugging Face model repo id (e.g. "username/model-name")
 
@@ -94,7 +88,6 @@ def load_model_from_hub(repo_id: str, **kwargs):
         # Try to load tokenizer and model from HF model hub using the token.
         # use_auth_token is accepted by transformers.from_pretrained for authenticated loads.
         print(f"Attempting to load model/tokenizer from Hugging Face repo: {repo_id}")
-        # NOTE: newer versions of transformers accept token arg; use use_auth_token for compatibility
         tokenizer = BertTokenizer.from_pretrained(repo_id, use_auth_token=hf_token)
         model = BertForSequenceClassification.from_pretrained(repo_id, use_auth_token=hf_token, **kwargs)
         print(f" Successfully loaded model and tokenizer from Hub: {repo_id}")
