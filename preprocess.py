@@ -1,5 +1,7 @@
+# preprocess.py
+
 """
-Model-based preprocessing using spaCy + Microsoft Presidio.
+Model based preprocessing using spaCy + Microsoft Presidio.
 - Detects PERSON, GPE/LOC, MONEY, DATE, EMAIL, PHONE, ORG, etc.
 - Replaces detected spans with uppercase placeholders like [PERSON_NAME]
 - Returns (final_text, mappings) where mappings is a dict: placeholder -> [values]
@@ -28,7 +30,7 @@ def clean_text(s: str) -> str:
     return s.strip()
 
 
-# ---------- Model initialization (do this once) ----------
+# Model initialization 
 _nlp = None
 _analyzer = None
 
@@ -52,7 +54,7 @@ def init_models(use_optional_order_invoice_patterns: bool = True):
                     {"TEXT": {"REGEX": "^.*[0-9].*$"}, "IS_PUNCT": False}
                 ]},
 
-                # Invoice-looking tokens (do NOT include 'bill' here)
+                # Invoice looking tokens
                 {"label": "INVOICE_NUMBER", "pattern": [
                     {"LOWER": {"IN": ["invoice", "inv"]}},
                     {"IS_PUNCT": True, "OP": "?"},
@@ -84,7 +86,7 @@ def init_models(use_optional_order_invoice_patterns: bool = True):
     return _nlp, _analyzer
 
 
-# ---------- Mapping from spaCy/Presidio entity types to our placeholders ----------
+# Mapping from spaCy/Presidio entity types to our placeholders 
 _ENTITY_TO_PLACEHOLDER = {
     "PERSON": "[PERSON_NAME]",
     "GPE": "[DELIVERY_LOCATION]",
@@ -110,10 +112,10 @@ _ENTITY_TO_PLACEHOLDER = {
     "STOP_ENTITY": "[STOP_ENTITY]",
 }
 
-# -------------- Placeholder handling policy --------------
+# Placeholder handling policy definitions:
 # Whitelist placeholders we will keep raw/sanitized values for (non-sensitive):
 _WHITELIST_VALUE_PHS = {"ACCOUNT_TYPE", "DELIVERY_LOCATION"}  # keep readable value (safe)
-# Placeholders considered semi-sensitive: we will NOT expose their unique values in the text (avoid leakage)
+# Placeholders considered semi-sensitive: NOT expose their unique values in the text (avoid leakage)
 _HASHED_VALUE_PHS = {"ORDER_ID", "INVOICE_NUMBER", "BILL_NUMBER"}
 # Sensitive placeholders (do not expose values in the text)
 _SENSITIVE_PH_STRINGS = {"PERSON_NAME", "EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT_CARD"}
@@ -195,12 +197,12 @@ def _normalize_date_value(value_raw: str) -> str:
         if re.search(r'\b' + re.escape(mn) + r'\b', v):
             return f"[DATE_MONTH={mn}]"
 
-    # 5) Year-like tokens '2023' or '23' (simple)
+    # 5) Year like tokens '2023' or '23' (simple)
     y = re.search(r'\b(19|20)\d{2}\b', v)
     if y:
         return f"[DATE_YEAR={y.group(0)}]"
 
-    # 6) ISO-like or numeric dates with slashes or dashes e.g. 2023-06-15 or 06/15/2023
+    # 6) ISO like or numeric dates with slashes or dashes e.g. 2023-06-15 or 06/15/2023
     d = re.search(r'(\d{1,4}[/-]\d{1,2}[/-]\d{1,4})', v)
     if d:
         # sanitize and keep short representation
@@ -218,13 +220,13 @@ def _normalize_date_value(value_raw: str) -> str:
     return "[DATE]"
 
 
-# ---------- Core function: normalize_placeholders ----------
+# Core function: normalize_placeholders
 def normalize_placeholders(text: str) -> Tuple[str, Dict[str, List[str]]]:
     """
     Replace recognized spans in `text` with placeholders and return (final_text, mappings).
     - Uses spaCy NER + Presidio Analyzer.
     - Preserves some non-sensitive entity values (e.g., account type),
-      but DOES NOT expose unique per-entity values or short-hashes in the text stream.
+      but DOES NOT expose unique per entity values or short hashes in the text stream.
     - Normalizes dates into bins/month/year/question tokens using heuristics.
     """
     if text is None:
@@ -270,7 +272,7 @@ def normalize_placeholders(text: str) -> Tuple[str, Dict[str, List[str]]]:
             merged.append(s)
             last_end = s["end"]
 
-    # 4) Build final text by replacing spans with placeholders (with values or generic tokens) and collect mappings
+    # 4) Build final text by replacing spans with placeholders (with values / generic tokens) and collect mappings
     mappings = defaultdict(list)
     out_pieces = []
     last_idx = 0
@@ -302,7 +304,7 @@ def normalize_placeholders(text: str) -> Tuple[str, Dict[str, List[str]]]:
                 except Exception:
                     amount = None
 
-            # Decision logic: **do not** include unique per-entity values or short-hashes in the text stream.
+            # Decision logic: not include unique per-entity values or short-hashes in the text stream.
             # Keep safe readable small values for whitelisted placeholders only.
             if ph_name in _WHITELIST_VALUE_PHS:
                 # keep readable sanitized value for safe placeholders
@@ -335,7 +337,7 @@ def normalize_placeholders(text: str) -> Tuple[str, Dict[str, List[str]]]:
 
     final_text = " ".join(out_pieces)
 
-    # Final sanitization: only target truly ID-like bracketed tokens (not short suffixes like pro_account_2)
+    # Final sanitization: only target truly ID-like bracketed tokens not short suffixes like pro_account_2
     def _is_id_like_token(tok: str) -> bool:
         t = tok.lower()
         # explicit "hash" mention (e.g., order_hash)
@@ -377,14 +379,14 @@ def normalize_placeholders(text: str) -> Tuple[str, Dict[str, List[str]]]:
     return final_text, final_mappings
 
 
-# ---------- small helper for convenience ----------
+# small helper for convenience
 def extract_slots(raw_text: str) -> Dict[str, List[str]]:
     """Return only the detected mappings (useful helper)."""
     _, mappings = normalize_placeholders(raw_text)
     return mappings
 
 
-# ---------- Example run when executed directly ----------
+# Example run when executed directly
 if __name__ == "__main__":
     example = "Can you check order ORD-12345 for John Doe delivered to New York? Refund $10.99. Invoice INV-98765 also. Call me at +1 555-24-9999 or email alice@example.com."
     final_text, mappings = normalize_placeholders(example)
