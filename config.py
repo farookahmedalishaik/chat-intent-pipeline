@@ -7,20 +7,20 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# --- 1. Project Structure ---
+# 1. Project Structure
 DATA_DIR = "data"
 ARTIFACTS_DIR = "artifacts"
 ANALYSIS_DIR = "analysis"
 LOGS_DIR = "bert_logs"
 MODEL_OUTPUT_DIR = "bert_output"
 
-# --- 2. Data Sources & Database ---
+# 2. Data Sources & Database
 RAW_DATA_FILE = os.path.join(DATA_DIR, "raw_customer_data.csv")
 CLEANED_DATA_FILE = os.path.join(DATA_DIR, "cleaned_all.csv")
 DB_MESSAGES_TABLE = "messages"
 DB_STAGING_TABLE = "messages_staging_tmp"
 
-# --- 3. Model & Training Hyperparameters ---
+# 3. Model & Training Hyperparameters
 SEED = 42
 TEST_RATIO = 0.15
 VALID_RATIO = 0.15
@@ -28,7 +28,7 @@ MAX_TEXT_LENGTH = 64  # BERT max is 512, but 128 or 64 is usually sufficient for
 
 # Training hyperparameters (recommended defaults)
 LEARNING_RATE = 2e-5         # safe default for 2-4 epochs
-BATCH_SIZE = 8               # per-device batch size; fallback to 4 if OOM on your laptop
+BATCH_SIZE = 8               # per-device batch size; fallback to 4 if OOM on the laptop
 GRADIENT_ACCUMULATION_STEPS = 2  # effective batch = BATCH_SIZE * GRADIENT_ACCUMULATION_STEPS
 EPOCHS = 3
 WARMUP_RATIO = 0.06
@@ -40,7 +40,7 @@ FOCAL_GAMMA = 2.0
 SAMPLING_STRATEGY = "class_weight"  # options: "sampler", "class_weight", "none"
 SAMPLER_REPLACEMENT = False
 
-# --- 4. Core Artifact & Model Paths ---
+# 4. Core Artifact & Model Paths
 MODEL_SUBDIR_NAME = "bert_intent_model"
 MODEL_DIR_PATH = os.path.join(ARTIFACTS_DIR, MODEL_SUBDIR_NAME)
 
@@ -62,14 +62,14 @@ LOW_F1_ERRORS_FILE = os.path.join(ARTIFACTS_DIR, "low_f1_errors.csv")
 ANALYSIS_MAX_CONFUSION_PAIRS_TO_PRINT = 50
 ANALYSIS_MISCLASSIFIED_SAMPLE_FILE = os.path.join(ANALYSIS_DIR, "test_misclassified_sample.csv")
 
-# --- 5. Application (UI) Settings ---
+# 5. Application (UI) Settings
 APP_DEFAULT_CONFIDENCE_THRESHOLD = 0.80
 APP_FALLBACK_SQLITE_DB_FILE = "runtime_logs.db"
 APP_LOW_CONFIDENCE_LOGS_TABLE = "low_conf"
 APP_PREDICTION_LOGS_TABLE = "logs"
 APP_SIDEBAR_GUIDANCE_TEXT = "This tool classifies messages into predefined intents."
 
-# --- 6. Deployment & Secrets (loaded from .env) ---
+# 6. Deployment & Secrets (loaded from .env) 
 HF_TOKEN = os.getenv("HF_TOKEN")
 HF_USER = os.getenv("HF_USER")
 
