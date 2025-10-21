@@ -1,5 +1,7 @@
 # Requirements for the project
 
+python-3.10
+
 # For data processing & ML
 pandas
 numpy
