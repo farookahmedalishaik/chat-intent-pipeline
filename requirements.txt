@@ -1,8 +1,8 @@
 # Requirements for the project
 
 # For data processing & ML
+numpy<2.0
 pandas
-numpy
 scikit-learn
 torch
 transformers
