@@ -1,5 +1,3 @@
-# preprocess.py
-
 """
 Model based preprocessing using spaCy + Microsoft Presidio.
 - Detects PERSON, GPE/LOC, MONEY, DATE, EMAIL, PHONE, ORG, etc.
@@ -17,7 +15,7 @@ import spacy
 from spacy.pipeline import EntityRuler
 
 from presidio_analyzer import AnalyzerEngine
-
+from presidio_analyzer.nlp_engine import NlpEngineProvider
 
 def clean_text(s: str) -> str:
     """small cleanup: remove URLs and excessive whitespace; keep ascii characters."""
@@ -81,9 +79,26 @@ def init_models(use_optional_order_invoice_patterns: bool = True):
             ]
             ruler.add_patterns(patterns)
 
+
+
+
     if _analyzer is None:
-        _analyzer = AnalyzerEngine()
+        # 1. Create a configuration for Presidio's NLP engine
+        nlp_config = {
+            "nlp_engine_name": "spacy",
+            "models": [{"lang_code": "en", "model_name": "en_core_web_sm"}]
+        }
+
+        # 2. Create the provider and engine
+        provider = NlpEngineProvider(nlp_configuration=nlp_config)
+        nlp_engine = provider.create_engine()
+
+        # 3. Pass the correctly configured engine to the Analyzer
+        _analyzer = AnalyzerEngine(nlp_engine=nlp_engine)
+
     return _nlp, _analyzer
+
+
 
 
 # Mapping from spaCy/Presidio entity types to our placeholders 
